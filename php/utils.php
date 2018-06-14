@@ -38,9 +38,9 @@
         pg_prepare($dbconn, "", "SELECT * FROM users WHERE id = $1");
         $result = pg_execute ($dbconn, "", [$userID]);
         $row = pg_fetch_assoc ($result);
-        
+
         $canSeeAll = (isset($row["see_all"]) && isTrue($row["see_all"]));  // 1 if see_all flag is present and true
-        $canAddNewSearch = (isset($row["can_add_search"]) && isTrue($row["can_add_search"]));  // 1 if can_add_search flag is present and true 
+        $canAddNewSearch = (isset($row["can_add_search"]) && isTrue($row["can_add_search"]));  // 1 if can_add_search flag is present and true
         $isSuperUser = (isset($row["super_user"]) && isTrue($row["super_user"]));  // 1 if super_user flag is present AND true
         $maxAAs = 0; //isset($row["max_aas"]) ? (int)$row["max_aas"] : 0;   // max aas and spectra now decided by user groups table
         $maxSpectra = 0; //isset($row["max_spectra"]) ? (int)$row["max_spectra"] : 0;
@@ -48,7 +48,7 @@
         $maxSearchLifetime = 1000;
         $maxSearchesPerDay = 100;
         $searchDenyReason = $canAddNewSearch ? "" : "Your user role is not allowed to add new searches.";
-        
+
         if (doesColumnExist ($dbconn, "user_groups", "max_aas")) {
             pg_prepare($dbconn, "", "SELECT max(user_groups.max_search_count) as max_search_count, max(user_groups.max_spectra) as max_spectra, max(user_groups.max_aas) as max_aas, max(user_groups.search_lifetime_days) as max_search_lifetime, max(user_groups.max_searches_per_day) as max_searches_per_day,
             MAX(CAST(user_groups.see_all as INT)) AS see_all,
@@ -60,7 +60,7 @@
             WHERE users.id = $1");
             $result = pg_execute ($dbconn, "", [$userID]);
             $row = pg_fetch_assoc ($result);
-            
+
             $maxSearchCount = (int)$row["max_search_count"];
             $maxSearchLifetime = (int)$row["max_search_lifetime"];
             $maxSearchesPerDay = (int)$row["max_searches_per_day"];
@@ -68,8 +68,8 @@
             $maxSpectra = max($maxSpectra, (int)$row["max_spectra"]);
             $canSeeAll = $canSeeAll || (!isset($row["see_all"]) || isTrue($row["see_all"]));
             $canAddNewSearch = $canAddNewSearch || (!isset($row["can_add_search"]) || isTrue($row["can_add_search"]));
-            $isSuperUser = $isSuperUser || (isset($row["super_user"]) && isTrue($row["super_user"])); 
-            
+            $isSuperUser = $isSuperUser || (isset($row["super_user"]) && isTrue($row["super_user"]));
+
             if ($canAddNewSearch) {
                 $userSearches = countUserSearches ($dbconn, $userID);
                 if ($maxSearchCount !== null && $userSearches >= $maxSearchCount) {
@@ -77,7 +77,7 @@
                     $searchDenyReason = "You already have ".$maxSearchCount." or more active searches. Consider hiding some of them to allow new searches.";
                 }
             }
-                  
+
             if ($canAddNewSearch) {
                 $userSearchesToday = countUserSearchesToday ($dbconn, $userID);
                 if ($maxSearchesPerDay !== null && $userSearchesToday >= $maxSearchesPerDay) {
@@ -89,18 +89,18 @@
             $maxAAs = max($maxAAs, 1000);
             $maxSpectra = max($maxSpectra, 1000000);
         }
-        
+
         // Test if searchSubmit exists as a sibling project
         $doesSearchSubmitExist = file_exists ("../../searchSubmit/");
         if ($doesSearchSubmitExist === false) {
             $canAddNewSearch = false;
         }
-        
+
         // Test if userGUI exists as a sibling project
         $doesUserGUIExist = file_exists ("../../userGUI/");
-          
+
         $userRights = array ("canSeeAll"=>$canSeeAll, "canAddNewSearch"=>$canAddNewSearch, "isSuperUser"=>$isSuperUser, "maxAAs"=>$maxAAs, "maxSpectra"=>$maxSpectra, "maxSearchLifetime"=>$maxSearchLifetime, "maxUserSearches"=>$maxSearchCount, "maxUserSearchesToday"=>$maxSearchesPerDay, "searchDenyReason"=>$searchDenyReason, "doesUserGUIExist"=>$doesUserGUIExist);
-		
+
 		return $userRights;
     }
 
@@ -134,13 +134,13 @@
 			//error_log (print_r ("getting su status", true));
 		}
 		$isSuperUser = $isSuperUser ? "t" : "f";
-		$arrString = "{".join(",", $uploadIDArray)."}"; 
+		$arrString = "{".join(",", $uploadIDArray)."}";
 		//error_log (print_r ("params ".$userID.", ".$isSuperUser.", ".$arrString, true));
-		
+
 		// table name can't be paramterised - https://stackoverflow.com/questions/11312737
 		pg_prepare ($dbconn, "", "SELECT id,private,private and not($2 or uploadedby=$1) as refused from ".$table." where id = ANY($3)");
         $result = pg_execute ($dbconn, "", [$userID, $isSuperUser, $arrString]);
-		
+
 		return resultsAsArray ($result);
 	}
 
@@ -205,8 +205,8 @@
     }
 
     function validateCaptcha ($captcha) {
-        include ('../../../xi_ini/emailInfo.php');
-        
+        include ('../../xi_ini/emailInfo.php');
+
         $ip = $_SERVER['REMOTE_ADDR'];
         $response=file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=".$secretRecaptchaKey."&response=".$captcha."&remoteip=".$ip);
         $responseKeys = json_decode($response,true);
@@ -214,7 +214,7 @@
         if (intval($responseKeys["success"]) !== 1) {
             echo (json_encode(array ("status"=>"fail", "msg"=> getTextString("captchaError"), "revalidate"=> true)));
             exit;
-        } 
+        }
     }
 
     function makePhpMailerObj ($myMailInfo, $toEmail, $userName="User Name", $subject="Test Send Mails") {
@@ -232,7 +232,7 @@
         $mail->SetFrom($myMailInfo["account"], 'Xi');
         $mail->Subject    = $subject;
         $mail->AddAddress($toEmail, $userName);
-        
+
         // $mail->AddAttachment("images/phpmailer.gif");        // attachment
         return $mail;
     }
@@ -241,9 +241,9 @@
         include ('../../../xi_ini/emailInfo.php');
         require_once    ('../../vendor/php/PHPMailer-master/src/PHPMailer.php');
         require_once    ('../../vendor/php/PHPMailer-master/src/SMTP.php');
-        
+
         //error_log (print_r ($email, true));
-        
+
         if (strlen($email) > 2) {
             if (filter_var ($email, FILTER_VALIDATE_EMAIL)) {
 
@@ -265,7 +265,7 @@
 
                         if(!$mail->Send()) {
                             //error_log (print_r ("failsend", true));
-                        }   
+                        }
                     } else {
                         throw new Exception (getTextString("genDatabaseError"));
                     }
