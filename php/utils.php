@@ -181,9 +181,9 @@
             // Within an ajax call, calling php header() just returns the contents of login.html, not redirect to it.
             // And since we're usually requesting a json object returning html will cause an error anyways.
             // Thus we return a simple json object with a redirect field for the ajax javascript call to handle
-            echo json_encode ((object) ['redirect' => '../xi3/login.html']);
+            echo json_encode ((object) ['redirect' => '../xiNET_website']);
             //header("location:../../xi3/login.html");
-            exit;
+            exit();
         }
     }
 
@@ -205,7 +205,7 @@
     }
 
     function validateCaptcha ($captcha) {
-        include ('../../xi_ini/emailInfo.php');
+        include ('../../../xi_ini/emailInfo.php');
 
         $ip = $_SERVER['REMOTE_ADDR'];
         $response=file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=".$secretRecaptchaKey."&response=".$captcha."&remoteip=".$ip);
