@@ -489,7 +489,7 @@ var ByRei_dynDiv = {
       if (ByRei_dynDiv.cache.ie) {evt.cancelBubble=true;}
       if (evt.stopPropagation) {evt.stopPropagation();}
       var evt_src = evt.target ? evt.target : evt.srcElement;
-
+	  
       // Avoid Issues with minmax
       if (evt_src.className.indexOf('dynDiv_minmaxDiv') === -1) {
           ByRei_dynDiv.get.mouse(evt);
@@ -704,6 +704,9 @@ var ByRei_dynDiv = {
        case "tr": new_top  = ByRei_dynDiv.db(5) + mouse_diff_top; break;
        case "bl": new_left = ByRei_dynDiv.db(4) + mouse_diff_left; break;
       }
+	  
+	  if (new_top < 39) { new_top = 39; }	// mjg. Stop dragging going under top bar hack.
+	  // in future, look at having element stored in db(1) that acts as bounds for boxes
 
       /* Check if Limit is reached (normal, keep aspect) */
       if (ByRei_dynDiv.db(1)) {
