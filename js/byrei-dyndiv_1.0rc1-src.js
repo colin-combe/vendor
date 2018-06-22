@@ -705,7 +705,6 @@ var ByRei_dynDiv = {
        case "bl": new_left = ByRei_dynDiv.db(4) + mouse_diff_left; break;
       }
 	  
-	  if (new_top < 39) { new_top = 39; }	// mjg. Stop dragging going under top bar hack.
 	  // in future, look at having element stored in db(1) that acts as bounds for boxes
 
       /* Check if Limit is reached (normal, keep aspect) */
@@ -754,6 +753,8 @@ var ByRei_dynDiv = {
            break;
           }
       }
+	  
+	 	if (new_top < 39) { new_top = 39; }	// mjg. Stop dragging going under top bar hack.
 
       // Check for min. Size (20x20)
       if (keepAspect) {
