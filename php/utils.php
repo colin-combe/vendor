@@ -29,6 +29,31 @@
     }
 
     // database connection needs to be open and user logged in for these functions to work
+    function validateID_RandID($dbconn, $sid) {
+            //SQL injection defense
+            $pattern = '/[^0-9,\-]/';
+            if (preg_match($pattern, $sid)){
+                exit();
+            }
+
+            $dashSeperated = explode("-" , $sid);
+            $randId = implode('-' , array_slice($dashSeperated, 1 , 4));
+            $id = $dashSeperated[0];
+
+            $searchDataQuery = "SELECT s.id, s.random_id
+        		FROM uploads s
+        		WHERE s.id = '".$id."' AND s.random_id = '".$randId."';";
+
+            $res = pg_query($searchDataQuery) or die('Query failed: ' . pg_last_error());
+        	if (pg_num_rows ($res) != 1) {
+        	    pg_free_result($res);
+                return -1;
+        	} else {
+                pg_free_result($res);
+                return $id;
+            }
+    }
+
     function isSuperUser($dbconn, $userID) {
         $rights = getUserRights ($dbconn, $userID);
         return $rights["isSuperUser"];
