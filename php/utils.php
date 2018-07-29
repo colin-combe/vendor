@@ -52,6 +52,7 @@
                 pg_free_result($res);
                 return $id;
             }
+            return -1;
     }
 
     function isSuperUser($dbconn, $userID) {
