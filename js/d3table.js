@@ -36,15 +36,15 @@ if (has_require) {
 		var filterByTypeFuncs = {
 			alpha: function (datum, regex) { return regex.test(datum) > 0; /* return datum.search(regex) >= 0; */ },
 			numeric: function (datum, range) { return range.length <= 1 ? +datum === range[0] : (datum >= range[0] && datum <= range[1]); },
-			boolean: function (datum, bool) { return toBoolean (datum, true) === bool; }													   
+			boolean: function (datum, bool) { return toBoolean (datum, true) === bool; }
 		};
 
 		var comparators = {
 			alpha: function (a, b) { return a.localeCompare(b); },
 			numeric: function (a, b) { return a - b; },
-			boolean: function (a, b) { 
-				var aBool = toBoolean(a); 
-				return aBool === toBoolean(b) ? 0 : (aBool ? 1 : -1); 
+			boolean: function (a, b) {
+				var aBool = toBoolean(a);
+				return aBool === toBoolean(b) ? 0 : (aBool ? 1 : -1);
 			}
 		};
 
@@ -233,7 +233,7 @@ if (has_require) {
 					var v = tooltips[d.key](d);
 					return v ? v : "";
 				})
-			;	
+			;
 
 			cells
 				.filter (function (d) { return cellD3Hooks[d.key]; })
@@ -260,8 +260,8 @@ if (has_require) {
 		};
 
 		my.typeSettings = function (type, settings) {
-			if (!settings) { 
-				return { 
+			if (!settings) {
+				return {
 					preprocessFunc: preprocessFilterInputFuncs[type],
 					filterFunc: filterByTypeFuncs[type],
 					comparator: comparators[type],
@@ -301,23 +301,26 @@ if (has_require) {
 				return filter[key] ? filterByTypeFuncs[filter[key].type] : null;
 			});
 
-			filteredData = data.filter (function (rowdata) {
-				var pass = true;
-				for (var n = 0; n < ko.length; n++) {
-					var key = ko[n];
-					var parsedFilterInput = processedFilterInputs[key];
-					if (parsedFilterInput != undefined) {
-						// If array
-						var datum = rowdata[key];
-						if (!indexedFilterByTypeFuncs[n].call (this, datum, parsedFilterInput)) {
-							pass = false;
-							break;
-						}
-					}
-				}
-				return pass;
-			}, this);
-
+            if (data) {
+    			filteredData = data.filter (function (rowdata) {
+    				var pass = true;
+    				for (var n = 0; n < ko.length; n++) {
+    					var key = ko[n];
+    					var parsedFilterInput = processedFilterInputs[key];
+    					if (parsedFilterInput != undefined) {
+    						// If array
+    						var datum = rowdata[key];
+    						if (!indexedFilterByTypeFuncs[n].call (this, datum, parsedFilterInput)) {
+    							pass = false;
+    							break;
+    						}
+    					}
+    				}
+    				return pass;
+    			}, this);
+            } else {
+                filteredData = [];
+            }
 			this.sort();
 
 			doPageCount();
@@ -326,7 +329,7 @@ if (has_require) {
 			// update filter inputs with new filters
 			var filterCells = this.getFilterCells();
 			filterCells.select("input").property("value", function (d) {
-				return filter[d.key] ? filter[d.key].value : "";	
+				return filter[d.key] ? filter[d.key].value : "";
 			});
 
 			var filter2 = selection.datum().headerEntries.map (function (hentry) {
@@ -427,11 +430,11 @@ if (has_require) {
 		};
 
 		my.getColumnIndex = function (key) {
-			return my.columnOrder().indexOf(key);	
+			return my.columnOrder().indexOf(key);
 		};
 
 		my.getFilteredSize = function () {
-			return filteredData.length;	
+			return filteredData.length;
 		};
 
 		my.getData = function () {
@@ -454,7 +457,7 @@ if (has_require) {
 			this.getFilterCells().selectAll("div")
 				.filter (function (d) { return d.key === key; })
 				.style ("display", show ? null : "none")
-			;	
+			;
 		};
 
 		// listen to this object to catch filter / sort events
@@ -473,10 +476,10 @@ if (has_require) {
 
 		return my;
 	};
-	
+
 	if (typeof define === "function" && define.amd) { this.d3Table = d3Table, define(d3Table); }
-	else if (typeof module === "object" && module.exports) { 
-		module.exports = {d3Table: d3Table}; 
+	else if (typeof module === "object" && module.exports) {
+		module.exports = {d3Table: d3Table};
 		module.require = ['d3'];
 	}
 	else { this.CLMSUI = this.CLMSUI || {}; this.CLMSUI.d3Table = d3Table; }
