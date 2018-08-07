@@ -300,27 +300,24 @@ if (has_require) {
 			var indexedFilterByTypeFuncs = ko.map (function (key) {
 				return filter[key] ? filterByTypeFuncs[filter[key].type] : null;
 			});
+            
+			filteredData = data.filter (function (rowdata) {
+				var pass = true;
+				for (var n = 0; n < ko.length; n++) {
+					var key = ko[n];
+					var parsedFilterInput = processedFilterInputs[key];
+					if (parsedFilterInput != undefined) {
+						// If array
+						var datum = rowdata[key];
+						if (!indexedFilterByTypeFuncs[n].call (this, datum, parsedFilterInput)) {
+							pass = false;
+							break;
+						}
+					}
+				}
+				return pass;
+			}, this);
 
-            if (data) {
-    			filteredData = data.filter (function (rowdata) {
-    				var pass = true;
-    				for (var n = 0; n < ko.length; n++) {
-    					var key = ko[n];
-    					var parsedFilterInput = processedFilterInputs[key];
-    					if (parsedFilterInput != undefined) {
-    						// If array
-    						var datum = rowdata[key];
-    						if (!indexedFilterByTypeFuncs[n].call (this, datum, parsedFilterInput)) {
-    							pass = false;
-    							break;
-    						}
-    					}
-    				}
-    				return pass;
-    			}, this);
-            } else {
-                filteredData = [];
-            }
 			this.sort();
 
 			doPageCount();
