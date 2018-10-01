@@ -204,11 +204,19 @@ if (has_require) {
 
 		function hideColumns () {
 			// hide columns that are hidden by default
-			d3.entries(my.columnSettings()).forEach (function (d, i) {
-				if (!d.value.visible) {
-					displayColumn (i + 1, false);
+			var csettings = my.columnSettings();
+			my.columnOrder().forEach (function (key, i) {
+				if (csettings[key]) {
+					var lastRowCellSelect = selection.select("tbody tr:last-child td:nth-child("+(i+1)+")");
+					if (!lastRowCellSelect.empty()) {
+						var currentState = lastRowCellSelect.style("display") !== "none";
+						var proposedState = csettings[key].visible;
+						if (currentState !== proposedState) {
+							displayColumn (i + 1, proposedState);
+						}
+					}
 				}
-			});
+			})
 		}
 		
 		my.getSelection = function () {
@@ -446,6 +454,13 @@ if (has_require) {
 		
 		my.showColumn = function (columnIndex, show) {
 			displayColumn (columnIndex, show);
+			return my;
+		};
+		
+		my.showColumnByKey = function (key, show) {
+			if (!arguments.length) { return undefined; }
+			if (arguments.length === 1) { return this.columnSettings()[key].visible; }
+			this.columnSettings()[key].visible = show;
 			return my;
 		};
 
