@@ -283,7 +283,7 @@
 
                     if ($result) {
                         $url = $urlRoot."userGUI/passwordReset.html?ptoken=".$ptoken;
-                        $mail->MsgHTML (getTextString ("resetPasswordEmailBody", [$url]));
+                        $mail->MsgHTML (getTextString ("resetPasswordEmailBody", [$userName, $url]));
                         //error_log (print_r ($ptoken, true));
                         //error_log (print_r ($id, true));
 
