@@ -20,7 +20,7 @@ if (has_require) {
 		var dispatch = d3.dispatch ("columnHiding", "filtering", "ordering", "ordering2", "pageNumbering");
 
 		var d3v3 = d3.version[0] === "3";
-
+		
 		// Zero is a valid value for a filter
 		function filterHasContent (filter) {
 			return filter || (filter === 0);
@@ -39,15 +39,15 @@ if (has_require) {
 		var filterByTypeFuncs = {
 			alpha: function (datum, regex) { return regex.test(datum) > 0; /* return datum.search(regex) >= 0; */ },
 			numeric: function (datum, range) { return range.length <= 1 ? +datum === range[0] : (datum >= range[0] && datum <= range[1]); },
-			boolean: function (datum, bool) { return toBoolean (datum, true) === bool; }
+			boolean: function (datum, bool) { return toBoolean (datum, true) === bool; }													   
 		};
 
 		var comparators = {
 			alpha: function (a, b) { return a.localeCompare(b); },
 			numeric: function (a, b) { return a - b; },
-			boolean: function (a, b) {
-				var aBool = toBoolean(a);
-				return aBool === toBoolean(b) ? 0 : (aBool ? 1 : -1);
+			boolean: function (a, b) { 
+				var aBool = toBoolean(a); 
+				return aBool === toBoolean(b) ? 0 : (aBool ? 1 : -1); 
 			}
 		};
 
@@ -60,8 +60,8 @@ if (has_require) {
 		function my (mySelection) {	// data in selection should be 2d-array [[]] or single empty array [] for empty tables
 			selection = mySelection;
 			filteredData = my.getData();
-
-			selection.classed (".d3tableContainer", true);
+			
+			selection.classed ("d3tableContainer", true);
 
 			if (selection.select("table").empty()) {
 
@@ -69,7 +69,7 @@ if (has_require) {
 					//console.log ("elem", elem, "this", this, "args", arguments);
 					elem.attr("class", "d3tableControls d3table-pagerInfo");
 					var pageInfo = elem.append(childNodeType || "span").attr("class", "d3table-pageInfo");
-
+					
 					pageInfo.append("span")
 						.attr("class", "d3table-pageInput")
 						.append ("input")
@@ -86,7 +86,7 @@ if (has_require) {
 					;
 					pageInfo.append("span").attr("class", "d3table-pageTotal");
 				}
-
+				
 				selection.append("div").call(addPageWidget);	// add top page control
 
 				var wrapperTable = selection.append("div").attr("class", "d3table-wrapper");
@@ -127,14 +127,14 @@ if (has_require) {
 
 		function buildHeaders () {
 			var columnEntries = d3.entries (my.columnSettings());
-
+			
 			var headerCells = my.getHeaderCells().data (columnEntries, function(d) { return d.key; });
 			headerCells.exit().remove();
 			var enterHeaderCells = headerCells.enter().append("th");
-
+			
 			// add elements to first header row
 			var headerSpans = enterHeaderCells.append("span").attr("class", "d3table-headerSpan");
-
+			
 			headerSpans
 				.append("svg").attr("class", "d3table-arrow")
 				.on ("click", function (d) {
@@ -156,7 +156,7 @@ if (has_require) {
 					.attr ("title", d.value.headerTooltip)
 				;
 			});
-
+			
 			// add elements to second header row
 			var filterCells = my.getFilterCells().data (columnEntries, function(d) { return d.key; });
 			filterCells.exit().remove();
@@ -187,7 +187,7 @@ if (has_require) {
 				.style ("display", function (d) { return passTypes.has (d.value.type) ? null : "none"; })
 			;
 		}
-
+		
 		function hideOrderWidgets () {
 			my.getOrderWidgets().style ("display", function (d) { return comparators[d.value.type] ? null : "none"; });
 		}
@@ -204,13 +204,21 @@ if (has_require) {
 
 		function hideColumns () {
 			// hide columns that are hidden by default
-			d3.entries(my.columnSettings()).forEach (function (d, i) {
-				if (!d.value.visible) {
-					displayColumn (i + 1, false);
+			var csettings = my.columnSettings();
+			my.columnOrder().forEach (function (key, i) {
+				if (csettings[key]) {
+					var lastRowCellSelect = selection.select("tbody tr:last-child td:nth-child("+(i+1)+")");
+					if (!lastRowCellSelect.empty()) {
+						var currentState = lastRowCellSelect.style("display") !== "none";
+						var proposedState = csettings[key].visible;
+						if (currentState !== proposedState) {
+							displayColumn (i + 1, proposedState);
+						}
+					}
 				}
-			});
+			})
 		}
-
+		
 		my.getSelection = function () {
 			return selection;
 		};
@@ -249,7 +257,7 @@ if (has_require) {
 					var v = columnSettings[d.key].tooltip (d);
 					return v ? v : "";
 				})
-			;
+			;	
 
 			cells
 				.filter (function (d) { return columnSettings[d.key].cellD3EventHook; })
@@ -264,8 +272,8 @@ if (has_require) {
 		};
 
 		my.typeSettings = function (type, settings) {
-			if (!settings) {
-				return {
+			if (!settings) { 
+				return { 
 					preprocessFunc: preprocessFilterInputFuncs[type],
 					filterFunc: filterByTypeFuncs[type],
 					comparator: comparators[type],
@@ -300,11 +308,11 @@ if (has_require) {
 					var preprocess = preprocessFilterInputFuncs[columnType];
 					preProcessOutput = preprocess ? preprocess.call (this, filterVal) : filterVal;
 					filterTypeFunc = filterByTypeFuncs[my.getColumnType(key)];
-				}
+				} 
 				accessorArray.push (my.columnSettings()[key].accessor);	// accessors allow accessing of deeper, nested data
 				processedFilterInputs.push (preProcessOutput);
 				indexedFilterByTypeFuncs.push (filterTypeFunc);
-			}, this);
+			}, this);		
 
 			filteredData = my.getData().filter (function (rowdata) {
 				var pass = true;
@@ -331,7 +339,7 @@ if (has_require) {
 			// update filter inputs with new filters
 			var filterCells = this.getFilterCells();
 			filterCells.select("input").property("value", function (d) {
-				return filterHasContent(filter[d.key]) ? filter[d.key] : "";
+				return filterHasContent(filter[d.key]) ? filter[d.key] : "";	
 			});
 
 			var filter2 = d3.entries(my.columnSettings()).map (function (columnSettingEntry) {
@@ -405,7 +413,7 @@ if (has_require) {
 
 		my.page = function (value) {
 			if (!arguments.length) { return page; }
-
+			
 			doPageCount();
 			page = d3.median ([1, value, pageCount]);
 
@@ -436,21 +444,28 @@ if (has_require) {
 		};
 
 		my.getColumnIndex = function (key) {
-			return my.columnOrder().indexOf(key);
+			return my.columnOrder().indexOf(key);	
 		};
-
+		
 		my.getColumnType = function (key) {
 			var cSettings = my.columnSettings();
 			return cSettings[key] ? cSettings[key].type : null;
 		};
-
+		
 		my.showColumn = function (columnIndex, show) {
 			displayColumn (columnIndex, show);
 			return my;
 		};
+		
+		my.showColumnByKey = function (key, show) {
+			if (!arguments.length) { return undefined; }
+			if (arguments.length === 1) { return this.columnSettings()[key].visible; }
+			this.columnSettings()[key].visible = show;
+			return my;
+		};
 
 		my.getFilteredSize = function () {
-			return filteredData.length;
+			return filteredData.length;	
 		};
 		
 		my.getFilteredData = function () {
@@ -460,19 +475,19 @@ if (has_require) {
 		my.getData = function () {
 			return selection.datum().data;
 		};
-
+		
 		my.columnSettings = function (value) {
 			if (!arguments.length) { return selection.datum().columnSettings; }
 			selection.datum().columnSettings = value;
 			return my;
 		};
-
+		
 		my.columnOrder = function (value) {
 			if (!arguments.length) { return selection.datum().columnOrder; }
 			selection.datum().columnOrder = value;
 			return my;
 		};
-
+		
 		// For querying or changing the accessors / cellStyles / dataToHTMLModifiers
 		my.metaDatum = function (field, columnKey, value) {
 			var columnSettings = my.columnSettings();
@@ -490,11 +505,11 @@ if (has_require) {
 		my.getHeaderCells = function () {
 			return selection.select("thead tr:first-child").selectAll("th")
 		};
-
+		
 		my.getOrderWidgets = function () {
 			return this.getHeaderCells().selectAll("svg.d3table-arrow");
 		};
-
+		
 		my.showOrderWidget = function (key, show) {
 			this.getOrderWidgets()
 				.filter (function (d) { return d.key === key; })
@@ -531,10 +546,10 @@ if (has_require) {
 
 		return my;
 	};
-
+	
 	if (typeof define === "function" && define.amd) { this.d3Table = d3Table, define(d3Table); }
-	else if (typeof module === "object" && module.exports) {
-		module.exports = {d3Table: d3Table};
+	else if (typeof module === "object" && module.exports) { 
+		module.exports = {d3Table: d3Table}; 
 		module.require = ['d3'];
 	}
 	else { this.CLMSUI = this.CLMSUI || {}; this.CLMSUI.d3Table = d3Table; }

@@ -153,8 +153,6 @@ tbody tr:hover td, tbody tr:hover td a, .spectrumShown{
     transition: all 200ms ease;
 }
 
-
-
 #clmsErrorBox {
     z-index: 3;
     font-size: 2em;
@@ -172,4 +170,13 @@ tbody tr:hover td, tbody tr:hover td a, .spectrumShown{
     -moz-box-shadow: 10px 10px 5px 0px rgba(0,0,0,0.5);
     box-shadow: 10px 10px 5px 0px rgba(0,0,0,0.5);
     background: white;
+}
+
+#clmsErrorBox .errorReason {
+	margin-top: 0.25em;
+	font-weight: bold;
+}
+
+#clmsErrorBox .errorReason:before {
+	content: ">> ";
 }
