@@ -123,9 +123,15 @@ CLMSUI.svgUtils = {
             return style.cssText;
         }
 
+        var badders = {quotes: true};   // quotes style with it's tons of escaped and unescaped quotes and non-standard characters generates illegal xhtml
         var cssText = "";
         for (var i = 0; i < style.length; i++) {
-            cssText += style[i] + ": " + style.getPropertyValue(style[i]) + "; ";
+            var styleName = style[i];
+            var badAttr = badders[styleName];
+            //cssText += styleName + ": " + (badAttr ? "'" : "") + style.getPropertyValue(styleName) + (badAttr ? "'" : "") + "; ";
+            if (!badAttr) {
+                cssText += styleName + ": " + style.getPropertyValue(styleName) + "; ";
+            }
         }
 
         return cssText;
