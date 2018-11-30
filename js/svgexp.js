@@ -125,7 +125,9 @@ CLMSUI.svgUtils = {
 
         var cssText = "";
         for (var i = 0; i < style.length; i++) {
-            cssText += style[i] + ": " + style.getPropertyValue(style[i]) + "; ";
+            var styleName = style[i];
+            var propVal = style.getPropertyValue(styleName);
+            cssText += styleName + ": " + propVal + "; ";
         }
 
         return cssText;
