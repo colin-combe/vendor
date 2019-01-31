@@ -156,7 +156,7 @@ CLMSUI.svgUtils = {
                     prune = allConditionsMet;
                 }
             });
-            if (prune) {
+            if (prune && clonedElement.parentNode) {
                 clonedElement.parentNode.removeChild (clonedElement);
                 //console.log ("removed", clonedElement);
             } else {

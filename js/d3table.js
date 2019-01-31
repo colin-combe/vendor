@@ -91,7 +91,7 @@ if (has_require) {
 
 				var wrapperTable = selection.append("div").attr("class", "d3table-wrapper");
 				var table = wrapperTable.append("table").attr("class", "d3table");
-				table.append("thead").selectAll("tr").data([0,1]).enter().append("tr");
+				table.append("thead").selectAll("tr").data(["","d3table-filterRow"]).enter().append("tr").attr("class", function(d) { return d; });
 				table.append("tbody");
 				table.append("tfoot").append("tr").call(addPageWidget, "td");	// add bottom page control
 			}
@@ -207,7 +207,9 @@ if (has_require) {
 			var csettings = my.columnSettings();
 			my.columnOrder().forEach (function (key, i) {
 				if (csettings[key]) {
-					var lastRowCellSelect = selection.select("tbody tr:last-child td:nth-child("+(i+1)+")");
+                    // OMG OMG. I used 'select' here instead of 'selectAll' and it passed on the whole table datum to every td cell in the last row
+                    // That's what it's meant to do in fairness, but it's an insidious side-effect when you're just wanting to access an element
+					var lastRowCellSelect = selection.selectAll("tbody tr:last-child td:nth-child("+(i+1)+")");
 					if (!lastRowCellSelect.empty()) {
 						var currentState = lastRowCellSelect.style("display") !== "none";
 						var proposedState = csettings[key].visible;
@@ -241,7 +243,7 @@ if (has_require) {
 
 			if (!d3v3) { rows = enterRows.merge(rows); }
 
-			var cells = rows.selectAll("td").data (function (d) { return ko.map (function (k) { return {key: k, value: d}; }); });
+			var cells = rows.selectAll("td").data (function (d, i) { return ko.map (function (k) { return {key: k, value: d}; }); });
 			var enterCells = cells.enter().append("td");
 
 			if (!d3v3) { cells = enterCells.merge(cells); }
@@ -519,7 +521,7 @@ if (has_require) {
 		};
 
 		my.getFilterCells = function () {
-			return selection.select("thead tr:nth-child(2)").selectAll("th");
+			return selection.select("thead tr.d3table-filterRow").selectAll("th");
 		};
 
 		my.showFilterCell = function (key, show) {
