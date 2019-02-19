@@ -54543,9 +54543,9 @@
       viewer.camera.setViewOffset(width * factor, height * factor, offsetX, offsetY, width, height);
       viewer.render();
       if (this._antialias) {
-          var rx = (offsetX % 2) * (width % 2);
-          var ry = (offsetY % 2) * (height % 2);
-          this._ctx.drawImage(viewer.renderer.domElement, Math.floor(offsetX / 2) + rx, Math.floor(offsetY / 2) + ry, Math.ceil(width / 2) - rx, Math.ceil(height / 2) - ry);
+          var w = Math.round((offsetX + width) / 2) - Math.round(offsetX / 2);
+          var h = Math.round((offsetY + height) / 2) - Math.round(offsetY / 2);
+          this._ctx.drawImage(viewer.renderer.domElement, Math.round(offsetX / 2), Math.round(offsetY / 2), w, h);
       }
       else {
           this._ctx.drawImage(viewer.renderer.domElement, Math.floor(offsetX), Math.floor(offsetY), Math.ceil(width), Math.ceil(height));
@@ -54642,13 +54642,13 @@
       if ( offset === void 0 ) offset = 0;
 
       var n = array1.length;
-      center = center || new Float32Array(n);
+      var c = center || new Float32Array(n);
       for (var i = 0; i < n; i += 3) {
-          center[offset + i + 0] = (array1[i + 0] + array2[i + 0]) / 2.0;
-          center[offset + i + 1] = (array1[i + 1] + array2[i + 1]) / 2.0;
-          center[offset + i + 2] = (array1[i + 2] + array2[i + 2]) / 2.0;
+          c[offset + i + 0] = (array1[i + 0] + array2[i + 0]) / 2.0;
+          c[offset + i + 1] = (array1[i + 1] + array2[i + 1]) / 2.0;
+          c[offset + i + 2] = (array1[i + 2] + array2[i + 2]) / 2.0;
       }
-      return center;
+      return c;
   }
   function calculateDirectionArray(array1, array2) {
       var n = array1.length;
@@ -55354,8 +55354,14 @@
    * @author Alexander Rose <alexander.rose@weirdbyte.de>
    * @private
    */
-  var pixelBufferFloat = new Float32Array(4);
-  var pixelBufferUint = new Uint8Array(4);
+  var pixelBufferFloat = new Float32Array(4 * 25);
+  var pixelBufferUint = new Uint8Array(4 * 25);
+  // When picking, we read a 25 pixel (5x5) array (readRenderTargetPixels)
+  // We read the pixels in the order below to find what was picked.
+  // This starts at the center and tries successively further points.
+  // (Many points will be at equal distance to the center, their order
+  // is arbitrary).
+  var pixelOrder = [12, 7, 13, 17, 11, 6, 8, 18, 16, 2, 14, 22, 10, 1, 3, 9, 19, 23, 21, 15, 5, 0, 4, 24, 20];
   var tmpMatrix = new Matrix4();
   function onBeforeRender(renderer, scene, camera, geometry, material /*, group */) {
       var u = material.uniforms;
@@ -56035,6 +56041,8 @@
       window.requestAnimationFrame(this.animate);
   };
   Viewer.prototype.pick = function pick (x, y) {
+          var this$1 = this;
+
       if (this.parameters.cameraType === 'stereo') {
           // TODO picking broken for stereo camera
           return {
@@ -56045,27 +56053,35 @@
       }
       x *= window.devicePixelRatio;
       y *= window.devicePixelRatio;
-      var pid, instance, picker;
+      x = Math.max(x - 2, 0);
+      y = Math.max(y - 2, 0);
+      var pid = 0, instance, picker;
       var pixelBuffer = SupportsReadPixelsFloat ? pixelBufferFloat : pixelBufferUint;
       this.render(true);
-      this.renderer.readRenderTargetPixels(this.pickingTarget, x, y, 1, 1, pixelBuffer);
-      if (SupportsReadPixelsFloat) {
-          pid =
-              ((Math.round(pixelBuffer[0] * 255) << 16) & 0xFF0000) |
-                  ((Math.round(pixelBuffer[1] * 255) << 8) & 0x00FF00) |
-                  ((Math.round(pixelBuffer[2] * 255)) & 0x0000FF);
-      }
-      else {
-          pid =
-              (pixelBuffer[0] << 16) |
-                  (pixelBuffer[1] << 8) |
-                  (pixelBuffer[2]);
-      }
-      var oid = Math.round(pixelBuffer[3]);
-      var object = this.pickingGroup.getObjectById(oid);
-      if (object) {
-          instance = object.userData.instance;
-          picker = object.userData.buffer.picking;
+      this.renderer.readRenderTargetPixels(this.pickingTarget, x, y, 5, 5, pixelBuffer);
+      for (var i = 0; i < pixelOrder.length; i++) {
+          var offset = pixelOrder[i] * 4;
+          var oid = Math.round(pixelBuffer[offset + 3]);
+          var object = this$1.pickingGroup.getObjectById(oid);
+          if (object) {
+              instance = object.userData.instance;
+              picker = object.userData.buffer.picking;
+          }
+          else {
+              continue;
+          }
+          if (SupportsReadPixelsFloat) {
+              pid =
+                  ((Math.round(pixelBuffer[offset] * 255) << 16) & 0xFF0000) |
+                      ((Math.round(pixelBuffer[offset + 1] * 255) << 8) & 0x00FF00) |
+                      ((Math.round(pixelBuffer[offset + 2] * 255)) & 0x0000FF);
+          }
+          else {
+              pid =
+                  (pixelBuffer[offset] << 16) |
+                      (pixelBuffer[offset + 1] << 8) |
+                      (pixelBuffer[offset + 2]);
+          }
       }
       // if( Debug ){
       //   const rgba = Array.apply( [], pixelBuffer );
@@ -60685,8 +60701,9 @@
       'BB'
   ];
   var NucleicBackboneAtoms = [
-      'P', 'OP1', 'OP2',
+      'P', 'OP1', 'OP2', 'HOP2', 'HOP3',
       "O2'", "O3'", "O4'", "O5'", "C1'", "C2'", "C3'", "C4'", "C5'",
+      "H1'", "H2'", "H2''", "HO2'", "H3'", "H4'", "H5'", "H5''", "HO3'", "HO5'",
       'O2*', 'O3*', 'O4*', 'O5*', 'C1*', 'C2*', 'C3*', 'C4*', 'C5*'
   ];
   var ResidueTypeAtoms = {};
@@ -61637,6 +61654,8 @@
               var k = ref[1];
               donor.index = atomSets[l][0];
               acceptor.index = atomSets[k][0];
+              if (acceptor.index === donor.index)
+                  { return; } // DA to self
               if (invalidAtomContact$1(donor, acceptor, masterIdx))
                   { return; }
               if (donor.number !== 16 /* S */ && acceptor.number !== 16 /* S */ && dSq > maxHbondDistSq)
@@ -62558,6 +62577,33 @@
           color2: new Float32Array(color),
           radius: new Float32Array(radius),
           picking: new ContactPicker(picking, contacts, structure)
+      };
+  }
+  function getLabelData(contactData, params) {
+      var position = calculateCenterArray(contactData.position1, contactData.position2);
+      var text = [];
+      var direction = calculateDirectionArray(contactData.position1, contactData.position2);
+      var n = direction.length / 3;
+      for (var i = 0; i < n; i++) {
+          var j = 3 * i;
+          var d = Math.sqrt(Math.pow(direction[j], 2) + Math.pow(direction[j + 1], 2) + Math.pow(direction[j + 2], 2));
+          switch (params.unit) {
+              case 'angstrom':
+                  text[i] = d.toFixed(2) + ' ' + String.fromCharCode(0x212B);
+                  break;
+              case 'nm':
+                  text[i] = (d / 10).toFixed(2) + ' nm';
+                  break;
+              default:
+                  text[i] = d.toFixed(2);
+                  break;
+          }
+      }
+      return {
+          position: position,
+          size: uniformArray(position.length / 3, params.size),
+          color: contactData.color,
+          text: text
       };
   }
 
@@ -63574,11 +63620,8 @@
           if (!noNormals && !normalCache) {
               normalCache = new Float32Array(n * 3);
           }
-          var vIndexLength = contour ? n * 3 : n;
+          var vIndexLength = n * 3;
           if (!vertexIndex || vertexIndex.length !== vIndexLength) {
-              // In contour mode we want all drawn edges parallel to one axis,
-              // so interpolation must be calculated in each dimension (rather
-              // than re-using a single interpolated vertex)
               vertexIndex = new Int32Array(vIndexLength);
           }
           count = 0;
@@ -63618,7 +63661,7 @@
           return ((zd * z) + yd * y) + x;
       }
       function VIntX(q, offset, x, y, z, valp1, valp2) {
-          var _q = contour ? 3 * q : q;
+          var _q = 3 * q;
           if (vertexIndex[_q] < 0) {
               var mu = (isolevel - valp1) / (valp2 - valp1);
               var nc = normalCache;
@@ -63643,7 +63686,7 @@
           }
       }
       function VIntY(q, offset, x, y, z, valp1, valp2) {
-          var _q = contour ? 3 * q + 1 : q;
+          var _q = 3 * q + 1;
           if (vertexIndex[_q] < 0) {
               var mu = (isolevel - valp1) / (valp2 - valp1);
               var nc = normalCache;
@@ -63669,7 +63712,7 @@
           }
       }
       function VIntZ(q, offset, x, y, z, valp1, valp2) {
-          var _q = contour ? 3 * q + 2 : q;
+          var _q = 3 * q + 2;
           if (vertexIndex[_q] < 0) {
               var mu = (isolevel - valp1) / (valp2 - valp1);
               var nc = normalCache;
@@ -63929,16 +63972,10 @@
                   for (y = yBeg2; y < yEnd2; ++y) {
                       yOffset = zOffset + yd * y;
                       for (x = xBeg2; x < xEnd2; ++x) {
-                          if (contour) {
-                              q = 3 * (yOffset + x);
-                              vertexIndex[q] = -1;
-                              vertexIndex[q + 1] = -1;
-                              vertexIndex[q + 2] = -1;
-                          }
-                          else {
-                              q = (yOffset + x);
-                              vertexIndex[q] = -1;
-                          }
+                          q = 3 * (yOffset + x);
+                          vertexIndex[q] = -1;
+                          vertexIndex[q + 1] = -1;
+                          vertexIndex[q + 2] = -1;
                       }
                   }
               }
@@ -63953,16 +63990,10 @@
               for (z = zBeg2; z < zEnd2; ++z) {
                   for (y = yBeg2; y < yEnd2; ++y) {
                       for (x = xBeg2; x < xEnd2; ++x) {
-                          if (contour) {
-                              q3 = index(x, y, z) * 3;
-                              vertexIndex[q3] = -1;
-                              vertexIndex[q3 + 1] = -1;
-                              vertexIndex[q3 + 2] = -1;
-                          }
-                          else {
-                              q = index(x, y, z);
-                              vertexIndex[q] = -1;
-                          }
+                          q3 = index(x, y, z) * 3;
+                          vertexIndex[q3] = -1;
+                          vertexIndex[q3 + 1] = -1;
+                          vertexIndex[q3 + 2] = -1;
                       }
                   }
               }
@@ -65214,9 +65245,7 @@
       var p = e.data.params;
       if (a) {
           /* global self */
-          Object.assign(self, {
-              volsurf: new VolumeSurface(a[0], a[1], a[2], a[3], a[4])
-          });
+          self.volsurf = new VolumeSurface(a[0], a[1], a[2], a[3], a[4]);
       }
       if (p) {
           var sd = self.volsurf.getSurface(p.isolevel, p.smooth, p.box, p.matrix, p.contour, p.wrap);
@@ -66260,6 +66289,21 @@
       this.geometry.dispose();
       if (this.wireframeGeometry)
           { this.wireframeGeometry.dispose(); }
+  };
+  /**
+   * Customize JSON serialization to avoid circular references
+   */
+  Buffer.prototype.toJSON = function toJSON () {
+          var this$1 = this;
+
+      var result = {};
+      for (var x in this$1) {
+          if (x !== "group" && x !== "wireframeGroup" && x != "pickingGroup"
+              && x !== "picking") {
+              result[x] = this$1[x];
+          }
+      }
+      return result;
   };
 
   Object.defineProperties( Buffer.prototype, prototypeAccessors$b );
@@ -67707,7 +67751,8 @@
       'sstruc': 'by secondary structure',
       'bfactor': 'by bfactor',
       'size': 'size',
-      'data': 'data'
+      'data': 'data',
+      'explicit': 'explicit'
   };
   var RadiusFactory = function RadiusFactory(params) {
       if ( params === void 0 ) params = {};
@@ -67756,6 +67801,13 @@
               break;
           case 'data':
               r = defaults(this.data[a.index], 1.0);
+              break;
+          case 'explicit':
+              // defaults is inappropriate as AtomProxy.radius returns
+              // null for missing radii
+              r = a.radius;
+              if (r === null)
+                  { r = this.size; }
               break;
           default:
               r = this.size;
@@ -69032,7 +69084,7 @@
       this.atomMap = structure.atomMap;
   };
 
-  var prototypeAccessors$f = { bondHash: { configurable: true },entity: { configurable: true },entityIndex: { configurable: true },modelIndex: { configurable: true },chainIndex: { configurable: true },residue: { configurable: true },residueIndex: { configurable: true },sstruc: { configurable: true },inscode: { configurable: true },resno: { configurable: true },chainname: { configurable: true },chainid: { configurable: true },residueType: { configurable: true },atomType: { configurable: true },residueAtomOffset: { configurable: true },resname: { configurable: true },hetero: { configurable: true },atomname: { configurable: true },number: { configurable: true },element: { configurable: true },vdw: { configurable: true },covalent: { configurable: true },x: { configurable: true },y: { configurable: true },z: { configurable: true },serial: { configurable: true },bfactor: { configurable: true },occupancy: { configurable: true },altloc: { configurable: true },partialCharge: { configurable: true },formalCharge: { configurable: true },aromatic: { configurable: true },bondCount: { configurable: true } };
+  var prototypeAccessors$f = { bondHash: { configurable: true },entity: { configurable: true },entityIndex: { configurable: true },modelIndex: { configurable: true },chainIndex: { configurable: true },residue: { configurable: true },residueIndex: { configurable: true },sstruc: { configurable: true },inscode: { configurable: true },resno: { configurable: true },chainname: { configurable: true },chainid: { configurable: true },residueType: { configurable: true },atomType: { configurable: true },residueAtomOffset: { configurable: true },resname: { configurable: true },hetero: { configurable: true },atomname: { configurable: true },number: { configurable: true },element: { configurable: true },vdw: { configurable: true },covalent: { configurable: true },x: { configurable: true },y: { configurable: true },z: { configurable: true },serial: { configurable: true },bfactor: { configurable: true },occupancy: { configurable: true },altloc: { configurable: true },partialCharge: { configurable: true },radius: { configurable: true },formalCharge: { configurable: true },aromatic: { configurable: true },bondCount: { configurable: true } };
   /**
    * @type {BondHash}
    */
@@ -69235,6 +69287,17 @@
   prototypeAccessors$f.partialCharge.set = function (value) {
       if (this.atomStore.partialCharge) {
           this.atomStore.partialCharge[this.index] = value;
+      }
+  };
+  /**
+   * Explicit radius
+   */
+  prototypeAccessors$f.radius.get = function () {
+      return this.atomStore.radius ? this.atomStore.radius[this.index] : null;
+  };
+  prototypeAccessors$f.radius.set = function (value) {
+      if (this.atomStore.radius) {
+          this.atomStore.radius[this.index] = value;
       }
   };
   /**
@@ -69464,8 +69527,8 @@
    * @return {Boolean} flag
    */
   AtomProxy.prototype.isRing = function isRing () {
-      var ringFlags = this.residueType.getRings().flags; // TODO
-      return ringFlags[this.index - this.residueAtomOffset] === 1;
+      var atomRings = this.residueType.getRings().atomRings; // TODO
+      return atomRings[this.index - this.residueAtomOffset] !== undefined;
   };
   AtomProxy.prototype.isAromatic = function isAromatic () {
       return this.aromatic === 1;
@@ -71035,12 +71098,14 @@
               var bondOrders = bonds.bondOrders;
               var nn = atomIndices1.length;
               for (var i = 0; i < nn; ++i) {
-                  var ai1 = atomIndices1[i] + offset;
-                  var ai2 = atomIndices2[i] + offset;
+                  var rai1 = atomIndices1[i];
+                  var rai2 = atomIndices2[i];
+                  var ai1 = rai1 + offset;
+                  var ai2 = rai2 + offset;
                   var tmp = atomBondMap[ai1];
                   if (tmp !== undefined && tmp[ai2] !== undefined) {
                       bp.index = tmp[ai2];
-                      var residueTypeBondIndex = r.residueType.getBondIndex(ai1, ai2); // TODO
+                      var residueTypeBondIndex = r.residueType.getBondIndex(rai1, rai2); // TODO
                       // overwrite residueType bondOrder with value from existing bond
                       bondOrders[residueTypeBondIndex] = bp.bondOrder;
                   }
@@ -71275,6 +71340,7 @@
           var atomIndices2 = [];
           var bondOrders = [];
           var bondDict = {};
+          var nextAtomOffset = atomOffset + rp.atomCount;
           rp.eachAtom(function (ap) {
               var index = ap.index;
               var offset = offsetArray[index];
@@ -71282,7 +71348,14 @@
               for (var i = 0, il = count; i < il; ++i) {
                   bp.index = indexArray[offset + i];
                   var idx1 = bp.atomIndex1;
+                  if (idx1 < atomOffset || idx1 >= nextAtomOffset) {
+                      // Don't add bonds outside of this resiude
+                      continue;
+                  }
                   var idx2 = bp.atomIndex2;
+                  if (idx2 < atomOffset || idx2 >= nextAtomOffset) {
+                      continue;
+                  }
                   if (idx1 > idx2) {
                       var tmp = idx2;
                       idx2 = idx1;
@@ -71818,7 +71891,7 @@
               { continue; }
           findRings(state, i);
       }
-      this.rings = { flags: state.flags, rings: state.rings };
+      this.rings = { atomRings: state.atomRings, rings: state.rings };
   };
   ResidueType.prototype.isAromatic = function isAromatic (atom) {
       this.aromaticAtoms = this.getAromatic(atom); // TODO
@@ -71849,7 +71922,7 @@
   ResidueType.prototype.assignBondReferenceAtomIndices = function assignBondReferenceAtomIndices () {
       var bondGraph = this.getBondGraph(); // TODO
       var rings = this.getRings(); // TODO
-      var ringFlags = rings.flags;
+      var atomRings = rings.atomRings;
       var ringData = rings.rings;
       var bonds = this.bonds; // TODO
       var atomIndices1 = bonds.atomIndices1;
@@ -71862,64 +71935,43 @@
           // Not required for single bonds
           if (bondOrders[i] <= 1)
               { continue; }
+          var refRing = (void 0);
           var ai1 = atomIndices1[i];
           var ai2 = atomIndices2[i];
+          var rings1 = atomRings[ai1];
+          var rings2 = atomRings[ai2];
           // Are both atoms in a ring?
-          if (ringFlags[ai1] && ringFlags[ai2]) {
-              // Select another ring atom
-              // I *think* we can simply take the first ring atom
-              // we find in a ring that contains either ai1 or ai2
-              // where the ring atom is not ai1 or ai2
-              for (var ri = 0; ri < ringData.length; ++ri) {
-                  // Have we already found it?
-                  if (bondReferenceAtomIndices[i] !== undefined) {
+          if (rings1 && rings2) {
+              // Are they in the same ring? (If not, ignore ring info)
+              for (var ri1 = 0; ri1 < rings1.length; ri1++) {
+                  if (rings2.indexOf(rings1[ri1]) !== -1) {
+                      refRing = ringData[rings1[ri1]];
                       break;
                   }
-                  var ring = ringData[ri];
-                  // Try to find this atom and reference atom in no more than 1 full
-                  // iteration through loop
-                  var refAtom = null;
-                  var found = false;
-                  for (var rai = 0; rai < ring.length; ++rai) {
-                      var ai3 = ring[rai];
-                      if (ai3 === ai1 || ai3 === ai2) {
-                          found = true;
-                      }
-                      else {
-                          // refAtom is any other atom
-                          refAtom = ai3;
-                      }
-                      if (found && refAtom !== null) {
-                          bondReferenceAtomIndices[i] = refAtom;
+              }
+          }
+          // Find the first neighbour.
+          if (bondGraph[ai1].length > 1) {
+              for (var j = 0; j < bondGraph[ai1].length; ++j) {
+                  var ai3 = bondGraph[ai1][j];
+                  if (ai3 !== ai2) {
+                      if (refRing === undefined || refRing.indexOf(ai3) !== -1) {
+                          bondReferenceAtomIndices[i] = ai3;
                           break;
                       }
                   }
               }
-              if (bondReferenceAtomIndices[i] !== undefined) {
-                  continue;
-              }
-          }
-          // Not a ring (or not one we can process), simply take the first
-          // neighbouring atom
-          if (bondGraph[ai1].length > 1) {
-              for (var j = 0; j < bondGraph[ai1].length; ++j) {
-                  var ai3$1 = bondGraph[ai1][j];
-                  if (ai3$1 !== ai2) {
-                      bondReferenceAtomIndices[i] = ai3$1;
-                      break;
-                  }
-              }
-              continue;
           }
           else if (bondGraph[ai2].length > 1) {
               for (var j$1 = 0; j$1 < bondGraph[ai2].length; ++j$1) {
-                  var ai3$2 = bondGraph[ai2][j$1];
-                  if (ai3$2 !== ai1) {
-                      bondReferenceAtomIndices[i] = ai3$2;
-                      break;
+                  var ai3$1 = bondGraph[ai2][j$1];
+                  if (ai3$1 !== ai1) {
+                      if (refRing === undefined || refRing.indexOf(ai3$1) !== -1) {
+                          bondReferenceAtomIndices[i] = ai3$1;
+                          break;
+                      }
                   }
               }
-              continue;
           } // No reference atom could be found (e.g. diatomic molecule/fragment)
       }
   };
@@ -72032,9 +72084,16 @@
       for (var t$4 = rightOffset - 1; t$4 >= 0; t$4--) {
           ring[ringOffset++] = right[t$4];
       }
-      // set atom-in-ring flags
+      var ri = state.rings.length;
+      // set atomRing indices:
       for (var i = 0; i < rn; ++i) {
-          state.flags[ring[i]] = 1;
+          var ai = ring[i];
+          if (state.atomRings[ai]) {
+              state.atomRings[ai].push(ri);
+          }
+          else {
+              state.atomRings[ai] = [ri];
+          }
       }
       state.rings.push(ring);
   }
@@ -72080,7 +72139,7 @@
           color: new Int32Array(capacity),
           currentColor: 0,
           rings: [],
-          flags: new Int8Array(capacity),
+          atomRings: [],
           bonds: bonds
       };
       for (var i = 0; i < capacity; i++) {
@@ -80105,6 +80164,8 @@
       return { x: x, y: y, z: z, count: n };
   }
   function chargeForAtom(a) {
+      if (a.partialCharge !== null)
+          { return a.partialCharge; }
       if (!a.isProtein()) {
           return 0.0;
       }
@@ -80144,6 +80205,12 @@
           params.structure.eachAtom(function (ap) {
               this$1.charges[ap.index] = chargeForAtom(ap) * ap.occupancy;
               if (ap.atomname === 'N') {
+                  // In the specific case where N forms two bonds to
+                  // CA and C, try and place a dummy hydrogen
+                  if (ap.bondCount >= 3)
+                      { return; } // Skip if 3 bonds already (e.g. PRO)
+                  if (ap.bondToElementCount(1))
+                      { return; } // Skip if any H specificed
                   var hPos = backboneNHPosition(ap);
                   if (hPos !== undefined) {
                       hPositions.push(hPos);
@@ -80170,7 +80237,7 @@
           for (var i = 0; i < neighbours.length; i++) {
               var neighbour = neighbours[i];
               var charge = this$1.charges[neighbour];
-              if (charge !== 0.0) {
+              if (charge != null && charge !== 0.0) {
                   this$1.atomProxy.index = neighbour;
                   this$1.delta.x = v.x - this$1.atomProxy.x;
                   this$1.delta.y = v.y - this$1.atomProxy.y;
@@ -80709,6 +80776,42 @@
       return RandomColormaker;
   }(Colormaker));
   ColormakerRegistry$1.add('random', RandomColormaker);
+
+  /**
+   * @file Randomcoilindex Colormaker
+   * @author Alexander Rose <alexander.rose@weirdbyte.de>
+   * @private
+   */
+  /**
+   * Color by random coil index
+   */
+  var RandomcoilindexColormaker = (function (Colormaker$$1) {
+      function RandomcoilindexColormaker(params) {
+          Colormaker$$1.call(this, params);
+          this.rciDict = {};
+          if (!params.scale) {
+              this.parameters.scale = 'RdYlBu';
+          }
+          this.rciScale = this.getScale({ domain: [0.6, 0] });
+          var val = params.structure.validation;
+          if (val)
+              { this.rciDict = val.rciDict; }
+      }
+
+      if ( Colormaker$$1 ) RandomcoilindexColormaker.__proto__ = Colormaker$$1;
+      RandomcoilindexColormaker.prototype = Object.create( Colormaker$$1 && Colormaker$$1.prototype );
+      RandomcoilindexColormaker.prototype.constructor = RandomcoilindexColormaker;
+      RandomcoilindexColormaker.prototype.atomColor = function atomColor (atom) {
+          var sele = "[" + (atom.resname) + "]" + (atom.resno);
+          if (atom.chainname)
+              { sele += ':' + atom.chainname; }
+          var rci = this.rciDict[sele];
+          return rci !== undefined ? this.rciScale(rci) : 0x909090;
+      };
+
+      return RandomcoilindexColormaker;
+  }(Colormaker));
+  ColormakerRegistry$1.add('randomcoilindex', RandomcoilindexColormaker);
 
   /**
    * @file Residueindex Colormaker
@@ -84449,6 +84552,20 @@
               filterSele: {
                   type: 'text', rebuild: true
               },
+              labelVisible: {
+                  type: 'boolean', rebuild: true
+              },
+              labelFixedSize: {
+                  type: 'boolean', buffer: 'fixedSize'
+              },
+              labelSize: {
+                  type: 'number', precision: 3, max: 10.0, min: 0.001, rebuild: true
+              },
+              labelUnit: {
+                  type: 'select',
+                  rebuild: true,
+                  options: { '': '', angstrom: 'angstrom', nm: 'nm' }
+              },
               maxHydrophobicDist: {
                   type: 'number', precision: 1, max: 10, min: 0.1, rebuild: true
               },
@@ -84530,6 +84647,10 @@
           this.cationPi = defaults(p.cationPi, true);
           this.piStacking = defaults(p.piStacking, true);
           this.filterSele = defaults(p.filterSele, '');
+          this.labelVisible = defaults(p.labelVisible, false);
+          this.labelFixedSize = defaults(p.labelFixedSize, false);
+          this.labelSize = defaults(p.labelSize, 2.0);
+          this.labelUnit = defaults(p.labelUnit, '');
           this.maxHydrophobicDist = defaults(p.maxHydrophobicDist, 4.0);
           this.maxHbondDist = defaults(p.maxHbondDist, 3.5);
           this.maxHbondSulfurDist = defaults(p.maxHbondSulfurDist, 4.1);
@@ -84591,17 +84712,24 @@
               filterSele: this.filterSele
           };
           var contacts = calculateContacts(sview, params);
-          var contactData = getContactData(contacts, sview, dataParams);
-          return getFixedCountDashData(contactData);
+          return getContactData(contacts, sview, dataParams);
       };
       ContactRepresentation.prototype.createData = function createData (sview) {
+          var contactData = this.getContactData(sview);
           var bufferList = [
-              new CylinderBuffer(this.getContactData(sview), this.getBufferParams({
+              new CylinderBuffer(getFixedCountDashData(contactData), this.getBufferParams({
                   sphereDetail: 1,
                   dullInterior: true,
                   disableImpostor: this.disableImpostor
               }))
           ];
+          if (this.labelVisible) {
+              var labelParams = {
+                  size: this.labelSize,
+                  unit: this.labelUnit
+              };
+              bufferList.push(new TextBuffer(getLabelData(contactData, labelParams), { fixedSize: this.labelFixedSize }));
+          }
           return { bufferList: bufferList };
       };
 
@@ -86221,16 +86349,14 @@
   }(StructureRepresentation));
   RepresentationRegistry.add('line', LineRepresentation);
 
-  var Grid = (function Grid(length, width, height, DataCtor, elemSize) {
+  function makeGrid(length, width, height, DataCtor, elemSize) {
       DataCtor = DataCtor || Int32Array;
       elemSize = elemSize || 1;
       var data = new DataCtor(length * width * height * elemSize);
       function index(x, y, z) {
           return ((((x * width) + y) * height) + z) * elemSize;
       }
-      this.data = data;
-      this.index = index;
-      this.set = function (x, y, z) {
+      function set(x, y, z) {
           var args = [], len = arguments.length - 3;
           while ( len-- > 0 ) args[ len ] = arguments[ len + 3 ];
 
@@ -86238,8 +86364,8 @@
           for (var j = 0; j < elemSize; ++j) {
               data[i + j] = args[j];
           }
-      };
-      this.toArray = function (x, y, z, array, offset) {
+      }
+      function toArray(x, y, z, array, offset) {
           if ( array === void 0 ) array = [];
           if ( offset === void 0 ) offset = 0;
 
@@ -86247,22 +86373,25 @@
           for (var j = 0; j < elemSize; ++j) {
               array[offset + j] = data[i + j];
           }
-      };
-      this.fromArray = function (x, y, z, array, offset) {
+      }
+      function fromArray(x, y, z, array, offset) {
           if ( offset === void 0 ) offset = 0;
 
           var i = index(x, y, z);
           for (var j = 0; j < elemSize; ++j) {
               data[i + j] = array[offset + j];
           }
-      };
-      this.copy = function (grid) {
-          this.data.set(grid.data);
-      };
-      this.clone = function () {
-          return new Grid(length, width, height, DataCtor, elemSize).copy(this);
-      };
-  });
+      }
+      function copy(grid) {
+          data.set(grid.data);
+      }
+      // function clone() {
+      //   return makeGrid(
+      //     length, width, height, DataCtor, elemSize
+      //   ).copy(this)
+      // }
+      return { data: data, index: index, set: set, toArray: toArray, fromArray: fromArray, copy: copy };
+  }
 
   /**
    * @file EDT Surface
@@ -86627,7 +86756,7 @@
       function fastdistancemap() {
           console.time('EDTSurface fastdistancemap');
           var i, j, k, n;
-          var boundPoint = new Grid(pLength, pWidth, pHeight, Uint16Array, 3);
+          var boundPoint = makeGrid(pLength, pWidth, pHeight, Uint16Array, 3);
           var pWH = pWidth * pHeight;
           var cutRSq = cutRadius * cutRadius;
           var totalsurfacevox = 0;
@@ -86921,7 +87050,7 @@
       }
   }
   Object.assign(EDTSurface, { __deps: [
-          getSurfaceGrid, getRadiusDict, VolumeSurface, computeBoundingBox, Grid
+          getSurfaceGrid, getRadiusDict, VolumeSurface, computeBoundingBox, makeGrid
       ] });
 
   /**
@@ -86929,7 +87058,7 @@
    * @author Fred Ludlow <fred.ludlow@gmail.com>
    * @private
    */
-  var AVHash = (function AVHash(atomsX, atomsY, atomsZ, atomsR, min, max, maxDistance) {
+  function makeAVHash(atomsX, atomsY, atomsZ, atomsR, min, max, maxDistance) {
       var nAtoms = atomsX.length;
       var minX = min[0];
       var minY = min[1];
@@ -86981,7 +87110,7 @@
           }
       }
       // Maximum number of neighbours we could ever produce (27 adjacent cells of equal population)
-      this.neighbourListLength = (27 * maxCellLength) + 1;
+      var neighbourListLength = (27 * maxCellLength) + 1;
       /**
        * Populate the supplied out array with atom indices that are within rAtom + rExtra
        * of x,y,z
@@ -86995,7 +87124,7 @@
        * @param  {Float32Array} out - pre-allocated output array
        * @return {undefined}
        */
-      this.withinRadii = function (x, y, z, rExtra, out) {
+      var withinRadii = function (x, y, z, rExtra, out) {
           var outIdx = 0;
           var nearI = hashFunc(x, minX);
           var nearJ = hashFunc(y, minY);
@@ -87030,7 +87159,11 @@
           // Add terminator
           out[outIdx] = -1;
       };
-  });
+      return {
+          neighbourListLength: neighbourListLength,
+          withinRadii: withinRadii
+      };
+  }
   function AVSurface(coordList, radiusList, indexList) {
       // Field generation method adapted from AstexViewer (Mike Hartshorn)
       // by Fred Ludlow.
@@ -87130,7 +87263,7 @@
           }
       }
       function initializeHash() {
-          hash = new AVHash(x, y, z, r, min, max, 2.01 * maxRadius);
+          hash = makeAVHash(x, y, z, r, min, max, 2.01 * maxRadius);
           neighbours = new Int32Array(hash.neighbourListLength);
       }
       function obscured(x, y, z, a, b) {
@@ -87385,7 +87518,7 @@
   Object.assign(AVSurface, { __deps: [
           getSurfaceGrid, VolumeSurface, uniformArray, computeBoundingBox,
           v3multiplyScalar, v3cross, v3normalize,
-          AVHash,
+          makeAVHash,
           defaults
       ] });
 
@@ -87419,10 +87552,12 @@
   var MolecularSurface = function MolecularSurface(structure) {
       this.structure = structure;
   };
-  MolecularSurface.prototype._getAtomData = function _getAtomData () {
+  MolecularSurface.prototype._getAtomData = function _getAtomData (params) {
       return this.structure.getAtomData({
           what: { position: true, radius: true, index: true },
-          radiusParams: { type: 'vdw', scale: 1 }
+          radiusParams: defaults(params.radiusParams, {
+              type: 'vdw', scale: 1.0
+          })
       });
   };
   MolecularSurface.prototype._makeSurface = function _makeSurface (sd, p) {
@@ -87441,7 +87576,7 @@
    */
   MolecularSurface.prototype.getSurface = function getSurface (params) {
       var p = params || {};
-      var atomData = this._getAtomData();
+      var atomData = this._getAtomData(params);
       var coordList = atomData.position;
       var radiusList = atomData.radius;
       var indexList = atomData.index;
@@ -87464,7 +87599,7 @@
           if (this.worker === undefined) {
               this.worker = new _Worker('molsurf');
           }
-          var atomData = this._getAtomData();
+          var atomData = this._getAtomData(params);
           var coordList = atomData.position;
           var radiusList = atomData.radius;
           var indexList = atomData.index;
@@ -87576,7 +87711,6 @@
                   type: 'boolean', rebuild: true
               }
           }, this.parameters, {
-              radiusType: null,
               radius: null,
               scale: null
           });
@@ -87709,7 +87843,7 @@
       };
       MolecularSurfaceRepresentation.prototype.updateData = function updateData (what, data) {
           var surfaceData = {};
-          if (what.position) {
+          if (what.position || what.radius) {
               this.__forceNewMolsurf = true;
               this.build();
               return;
@@ -87748,7 +87882,8 @@
               smooth: this.smooth && !this.contour,
               cutoff: this.cutoff,
               contour: this.contour,
-              useWorker: this.useWorker
+              useWorker: this.useWorker,
+              radiusParams: this.getRadiusParams()
           }, params);
           return p;
       };
@@ -88716,6 +88851,8 @@
       };
       UnitcellRepresentation.prototype.updateData = function updateData (what, data) {
           var structure = data.sview.getStructure();
+          if (!structure.unitcell)
+              { return; }
           var unitcellData = this.getUnitcellData(structure);
           var sphereData = {};
           var cylinderData = {};
@@ -89848,7 +89985,7 @@
                           inscode = '';
                           resname = ls[3];
                           altloc = '';
-                          occupancy = 0.0;
+                          occupancy = 1.0;
                       }
                       else {
                           serial = parseInt(line.substr(6, 5), serialRadix);
@@ -90185,6 +90322,9 @@
           this.streamer.eachChunkOfLines(function (lines /*, chunkNo, chunkCount */) {
               _parseChunkOfLines(0, lines.length, lines);
           });
+          // finalize ensures resname will be defined for all rp.resname
+          // (required in entity handling below)
+          sb.finalize();
           //
           var en = entityDataList.length;
           if (en) {
@@ -90231,7 +90371,6 @@
           if (helices.length || sheets.length) {
               assignSecondaryStructure(s, secStruct);
           }
-          sb.finalize();
           s.finalizeAtoms();
           if (!isLegacy)
               { calculateChainnames(s); }
@@ -90382,7 +90521,7 @@
           alpha: parseFloat(cif.cell_angle_alpha),
           beta: parseFloat(cif.cell_angle_beta),
           gamma: parseFloat(cif.cell_angle_gamma),
-          spacegroup: trimQuotes(cif.symmetry_space_group_name_H)
+          spacegroup: trimQuotes(cif['symmetry_space_group_name_H-M'])
       });
       var v = new Vector3();
       var c = new Vector3();
@@ -95316,7 +95455,7 @@
           var nc = header.CMAX - header.CMIN + 1;
           var n = na * nb * nc;
           var data = new Float32Array(n);
-          var lineSection = 1 + (na * nb) / 6;
+          var lineSection = Math.ceil(1 + (na * nb) / 6);
           var count = 0;
           var lineNo = 0;
           function _parseChunkOfLines(_i, _n, lines) {
@@ -95324,8 +95463,11 @@
                   var line = lines[i];
                   if (lineNo >= dataStart && (lineNo - dataStart) % lineSection !== 0 && count < n) {
                       for (var j = 0, lj = 6; j < lj; ++j) {
-                          data[count] = parseFloat(line.substr(12 * j, 12));
-                          ++count;
+                          var value = parseFloat(line.substr(12 * j, 12));
+                          if (isNaN(value)) {
+                              break;
+                          } // Last line of map section
+                          data[count++] = value;
                       }
                   }
                   else if (count === n) {
@@ -97047,19 +97189,28 @@
   function getSele(a, atomname, useAltcode) {
       if ( useAltcode === void 0 ) useAltcode = false;
 
-      var icode = getNamedItem(a, 'icode');
-      var chain = getNamedItem(a, 'chain');
+      var icode = getNamedItem(a, 'icode').trim();
+      var chain = getNamedItem(a, 'chain').trim();
       var altcode = getNamedItem(a, 'altcode');
       var sele = getNamedItem(a, 'resnum');
-      if (icode.trim())
+      if (icode)
           { sele += '^' + icode; }
-      if (chain.trim())
+      if (chain)
           { sele += ':' + chain; }
       if (atomname)
           { sele += '.' + atomname; }
       if (useAltcode && altcode.trim())
           { sele += '%' + altcode; }
       sele += '/' + (parseInt(getNamedItem(a, 'model')) - 1);
+      return sele;
+  }
+  function getResSele(a) {
+      var chain = getNamedItem(a, 'chain').trim();
+      var rescode = getNamedItem(a, 'rescode');
+      var resnum = getNamedItem(a, 'resnum');
+      var sele = "[" + rescode + "]" + resnum;
+      if (chain)
+          { sele += ":" + chain; }
       return sele;
   }
   function setBitDict(dict, key, bit) {
@@ -97122,10 +97273,27 @@
       }
       return geoProblemCount;
   }
-  var Validation = function Validation(name, readonlypath) {
+  var Validation = function Validation(name, path) {
       this.name = name;
+      this.path = path;
       this.rsrzDict = {};
       this.rsccDict = {};
+      /**
+       * Random Coil Index (RCI) - evaluates the proximity of residue structural
+       * and dynamic properties to the properties of flexible random coil regions
+       * from NMR chemical shifts.
+       *
+       * Mark V. Berjanskii and David S. Wishart (2005)
+       * A Simple Method To Predict Protein Flexibility Using Secondary Chemical Shifts
+       * J. Am. Chem. Soc., 2005, 127 (43), pp 14970–14971
+       * http://pubs.acs.org/doi/abs/10.1021/ja054842f
+       *
+       * Mark V. Berjanskii and David S. Wishart (2008)
+       * Application of the random coil index to studying protein flexibility.
+       * J Biomol NMR. 2008 Jan;40(1):31-48. Epub 2007 Nov 6.
+       * http://www.springerlink.com/content/2966482w10306126/
+       */
+      this.rciDict = {};
       this.clashDict = {};
       this.clashArray = [];
       this.geoDict = {};
@@ -97141,11 +97309,24 @@
           { Log.time('Validation.fromXml'); }
       var rsrzDict = this.rsrzDict;
       var rsccDict = this.rsccDict;
+      var rciDict = this.rciDict;
       var clashDict = this.clashDict;
       var clashArray = this.clashArray;
       var geoDict = this.geoDict;
       var geoAtomDict = this.geoAtomDict;
       var atomDict = this.atomDict;
+      var entries = xml.getElementsByTagName('Entry');
+      if (entries.length === 1) {
+          var chemicalShiftLists = entries[0].getElementsByTagName('chemical_shift_list');
+          if (chemicalShiftLists.length === 1) {
+              var randomCoilIndices = chemicalShiftLists[0].getElementsByTagName('random_coil_index');
+              for (var j = 0, jl = randomCoilIndices.length; j < jl; ++j) {
+                  var rcia = randomCoilIndices[j].attributes;
+                  var sele = getResSele(rcia);
+                  rciDict[sele] = parseFloat(getNamedItem(rcia, 'value'));
+              }
+          }
+      }
       var groups = xml.getElementsByTagName('ModelledSubgroup');
       var _clashDict = {};
       var clashList = [];
@@ -97154,19 +97335,19 @@
       for (var i = 0, il = groups.length; i < il; ++i) {
           var g = groups[i];
           var ga = g.attributes;
-          var sele = getSele(ga);
+          var sele$1 = getSele(ga);
           if (ga.getNamedItem('rsrz') !== null) {
-              rsrzDict[sele] = parseFloat(getNamedItem(ga, 'rsrz'));
+              rsrzDict[sele$1] = parseFloat(getNamedItem(ga, 'rsrz'));
           }
           if (ga.getNamedItem('rscc') !== null) {
-              rsccDict[sele] = parseFloat(getNamedItem(ga, 'rscc'));
+              rsccDict[sele$1] = parseFloat(getNamedItem(ga, 'rscc'));
           }
           var seleAttr = xml.createAttribute('sele');
-          seleAttr.value = sele;
+          seleAttr.value = sele$1;
           ga.setNamedItem(seleAttr);
           var clashes = g.getElementsByTagName('clash');
-          for (var j = 0, jl = clashes.length; j < jl; ++j) {
-              var ca = clashes[j].attributes;
+          for (var j$1 = 0, jl$1 = clashes.length; j$1 < jl$1; ++j$1) {
+              var ca = clashes[j$1].attributes;
               var atom = getNamedItem(ca, 'atom');
               if (guessElement(atom) !== 'H') {
                   var cid = getNamedItem(ca, 'cid');
@@ -97175,15 +97356,15 @@
                   if (_clashDict[cid] === undefined) {
                       _clashDict[cid] = {
                           sele1: atomSele,
-                          res1: sele
+                          res1: sele$1
                       };
                   }
                   else {
                       var c = _clashDict[cid];
-                      if (c.res1 !== sele) {
+                      if (c.res1 !== sele$1) {
                           c.sele2 = atomSele;
-                          c.res2 = sele;
-                          clashList.push(c.res1, sele);
+                          c.res2 = sele$1;
+                          clashList.push(c.res1, sele$1);
                           clashDict[cid] = c;
                           clashArray.push(c);
                       }
@@ -97196,12 +97377,12 @@
       for (var i$1 = 0, il$1 = groups.length; i$1 < il$1; ++i$1) {
           var g$1 = groups[i$1];
           var ga$1 = g$1.attributes;
-          var sele$1 = getNamedItem(ga$1, 'sele');
+          var sele$2 = getNamedItem(ga$1, 'sele');
           var isPolymer = getNamedItem(ga$1, 'seq') !== '.';
           if (isPolymer) {
               var geoProblemCount = getProblemCount(clashDict, g$1, ga$1);
               if (geoProblemCount > 0) {
-                  geoDict[sele$1] = geoProblemCount;
+                  geoDict[sele$2] = geoProblemCount;
               }
           }
           else {
@@ -97210,21 +97391,21 @@
               var mogAngleOutliers = g$1.getElementsByTagName('mog-angle-outlier');
               if (mogBondOutliers.length > 0 || mogAngleOutliers.length > 0 || clashes$1.length > 0) {
                   var atomDict$1 = {};
-                  geoAtomDict[sele$1] = atomDict$1;
-                  for (var j$1 = 0, jl$1 = clashes$1.length; j$1 < jl$1; ++j$1) {
-                      var ca$1 = clashes$1[j$1].attributes;
+                  geoAtomDict[sele$2] = atomDict$1;
+                  for (var j$2 = 0, jl$2 = clashes$1.length; j$2 < jl$2; ++j$2) {
+                      var ca$1 = clashes$1[j$2].attributes;
                       if (clashDict[getNamedItem(ca$1, 'cid')]) {
                           setBitDict(atomDict$1, getNamedItem(ca$1, 'atom'), 1);
                       }
                   }
-                  for (var j$2 = 0, jl$2 = mogBondOutliers.length; j$2 < jl$2; ++j$2) {
-                      var mbo = mogBondOutliers[j$2].attributes;
+                  for (var j$3 = 0, jl$3 = mogBondOutliers.length; j$3 < jl$3; ++j$3) {
+                      var mbo = mogBondOutliers[j$3].attributes;
                       getNamedItem(mbo, 'atoms').split(',').forEach(function (atomname) {
                           setBitDict(atomDict$1, atomname, 2);
                       });
                   }
-                  for (var j$3 = 0, jl$3 = mogAngleOutliers.length; j$3 < jl$3; ++j$3) {
-                      var mao = mogAngleOutliers[j$3].attributes;
+                  for (var j$4 = 0, jl$4 = mogAngleOutliers.length; j$4 < jl$4; ++j$4) {
+                      var mao = mogAngleOutliers[j$4].attributes;
                       getNamedItem(mao, 'atoms').split(',').forEach(function (atomname) {
                           setBitDict(atomDict$1, atomname, 4);
                       });
@@ -100589,7 +100770,7 @@
       mousePreset: SelectParam.apply(void 0, Object.keys(MouseActionPresets))
   };
 
-  var version$1 = "2.0.0-dev.33";
+  var version$1 = "2.0.0-dev.34";
 
   /**
    * @file Version

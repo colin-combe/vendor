@@ -65,7 +65,8 @@ CLMSUI.svgUtils = {
         var parentAdded = false;
         for (var p = 0; p < predecessorInfo.length; p++) {
             var pinf = predecessorInfo [p];
-            var dummySVGElem = ownerDoc.createElement ("svg");
+            //var dummySVGElem = ownerDoc.createElement ("svg");
+            var dummySVGElem = ownerDoc.createElementNS ("http://www.w3.org/2000/svg", "svg");
             var empty = true;
             Object.keys(pinf).forEach (function (key) {
                 if (pinf[key]) {
