@@ -56465,16 +56465,17 @@
       this._onTouchend = this._onTouchend.bind(this);
       this._onTouchmove = this._onTouchmove.bind(this);
       this._listen();
-      document.addEventListener('mousewheel', this._onMousewheel);
-      document.addEventListener('wheel', this._onMousewheel);
-      document.addEventListener('MozMousePixelScroll', this._onMousewheel);
-      document.addEventListener('mousemove', this._onMousemove);
-      document.addEventListener('mousedown', this._onMousedown);
-      document.addEventListener('mouseup', this._onMouseup);
-      document.addEventListener('contextmenu', this._onContextmenu);
-      document.addEventListener('touchstart', this._onTouchstart);
-      document.addEventListener('touchend', this._onTouchend);
-      document.addEventListener('touchmove', this._onTouchmove);
+      var opt = { passive: false }; // treat as 'passive' so preventDefault can be called
+      document.addEventListener('mousewheel', this._onMousewheel, opt);
+      document.addEventListener('wheel', this._onMousewheel, opt);
+      document.addEventListener('MozMousePixelScroll', this._onMousewheel, opt);
+      document.addEventListener('mousemove', this._onMousemove, opt);
+      document.addEventListener('mousedown', this._onMousedown, opt);
+      document.addEventListener('mouseup', this._onMouseup, opt);
+      document.addEventListener('contextmenu', this._onContextmenu, opt);
+      document.addEventListener('touchstart', this._onTouchstart, opt);
+      document.addEventListener('touchend', this._onTouchend, opt);
+      document.addEventListener('touchmove', this._onTouchmove, opt);
   };
 
   var prototypeAccessors$2 = { key: { configurable: true } };
@@ -59511,7 +59512,7 @@
       this.boundY = ((bb.max.y - this.minY) >> this.exp) + 1;
       this.boundZ = ((bb.max.z - this.minZ) >> this.exp) + 1;
       var n = this.boundX * this.boundY * this.boundZ;
-      var an = positions.x.length;
+      var an = (positions.count !== undefined) ? positions.count : positions.x.length;
       var xArray = positions.x;
       var yArray = positions.y;
       var zArray = positions.z;
@@ -59571,12 +59572,12 @@
       var loX = Math.max(0, (x - r - this.minX) >> this.exp);
       var loY = Math.max(0, (y - r - this.minY) >> this.exp);
       var loZ = Math.max(0, (z - r - this.minZ) >> this.exp);
-      var hiX = Math.min(this.boundX, (x + r - this.minX) >> this.exp);
-      var hiY = Math.min(this.boundY, (y + r - this.minY) >> this.exp);
-      var hiZ = Math.min(this.boundZ, (z + r - this.minZ) >> this.exp);
-      for (var ix = loX; ix <= hiX; ++ix) {
-          for (var iy = loY; iy <= hiY; ++iy) {
-              for (var iz = loZ; iz <= hiZ; ++iz) {
+      var hiX = Math.min(this.boundX, ((x + r - this.minX) >> this.exp) + 1);
+      var hiY = Math.min(this.boundY, ((y + r - this.minY) >> this.exp) + 1);
+      var hiZ = Math.min(this.boundZ, ((z + r - this.minZ) >> this.exp) + 1);
+      for (var ix = loX; ix < hiX; ++ix) {
+          for (var iy = loY; iy < hiY; ++iy) {
+              for (var iz = loZ; iz < hiZ; ++iz) {
                   var idx = (((ix * this$1.boundY) + iy) * this$1.boundZ) + iz;
                   var bucketIdx = this$1.grid[idx];
                   if (bucketIdx > 0) {
@@ -60596,9 +60597,9 @@
       'PYL': 'O',
   };
   var AA3 = Object.keys(AA1);
-  var RnaBases = ['A', 'C', 'T', 'G', 'U'];
-  var DnaBases = ['DA', 'DC', 'DT', 'DG', 'DU'];
-  var PurinBases = ['A', 'G', 'DA', 'DG'];
+  var RnaBases = ['A', 'C', 'T', 'G', 'U', 'I'];
+  var DnaBases = ['DA', 'DC', 'DT', 'DG', 'DU', 'DI'];
+  var PurinBases = ['A', 'G', 'I', 'DA', 'DG', 'DI'];
   var Bases = RnaBases.concat(DnaBases);
   var WaterNames = [
       'SOL', 'WAT', 'HOH', 'H2O', 'W', 'DOD', 'D3O', 'TIP3', 'TIP4', 'SPC'
@@ -64177,6 +64178,35 @@
               { atd[pAt] = ad[Ai + j]; }
       }
   }
+  // C = A * B
+  function multiply(C, A, B) {
+      var i = 0;
+      var j = 0;
+      var k = 0;
+      var Ap = 0;
+      var pA = 0;
+      var pB = 0;
+      var _pB = 0;
+      var Cp = 0;
+      var ncols = A.cols;
+      var nrows = A.rows;
+      var mcols = B.cols;
+      var ad = A.data;
+      var bd = B.data;
+      var cd = C.data;
+      var sum = 0.0;
+      for (; i < nrows; Ap += ncols, i++) {
+          for (_pB = 0, j = 0; j < mcols; Cp++, _pB++, j++) {
+              pB = _pB;
+              pA = Ap;
+              sum = 0.0;
+              for (k = 0; k < ncols; pA++, pB += mcols, k++) {
+                  sum += ad[pA] * bd[pB];
+              }
+              cd[Cp] = sum;
+          }
+      }
+  }
   // C = A * B'
   function multiplyABt(C, A, B) {
       var i = 0;
@@ -64300,16 +64330,6 @@
       for (var i = 0, p = 0; i < nrows; ++i) {
           for (var j = 0; j < ncols; ++j, ++p) {
               Ad[p] -= row[j];
-          }
-      }
-  }
-  function addRows(A, row) {
-      var nrows = A.rows;
-      var ncols = A.cols;
-      var Ad = A.data;
-      for (var i = 0, p = 0; i < nrows; ++i) {
-          for (var j = 0; j < ncols; ++j, ++p) {
-              Ad[p] += row[j];
           }
       }
   }
@@ -71705,6 +71725,9 @@
       if (this.chemCompType) {
           return ChemCompRna.includes(this.chemCompType);
       }
+      else if (this.hetero === 1) {
+          return false;
+      }
       else {
           return (this.hasAtomWithName(['P', "O3'", 'O3*'], ["C4'", 'C4*'], ["O2'", 'O2*', "F2'", 'F2*']) ||
               (RnaBases.includes(this.resname) &&
@@ -71714,6 +71737,9 @@
   ResidueType.prototype.isDna = function isDna () {
       if (this.chemCompType) {
           return ChemCompDna.includes(this.chemCompType);
+      }
+      else if (this.hetero === 1) {
+          return false;
       }
       else {
           return ((this.hasAtomWithName(['P', "O3'", 'O3*'], ["C3'", 'C3*']) &&
@@ -76837,10 +76863,11 @@
       var coords2 = new Matrix(3, n);
       this.coords1t = new Matrix(n, 3);
       this.coords2t = new Matrix(n, 3);
+      this.transformationMatrix = new Matrix4();
       this.c.data.set([1, 0, 0, 0, 1, 0, 0, 0, -1]);
       // prep coords
-      this.prepCoords(atoms1, coords1, n);
-      this.prepCoords(atoms2, coords2, n);
+      this.prepCoords(atoms1, coords1, n, false);
+      this.prepCoords(atoms2, coords2, n, false);
       // superpose
       this._superpose(coords1, coords2);
   };
@@ -76861,23 +76888,66 @@
           multiply3x3(this.tmp, this.c, this.VH);
           multiply3x3(this.R, this.U, this.tmp);
       }
+      //get the transformation matrix
+      var transformMat_ = new Matrix(4, 4);
+      var tmp_1 = new Matrix(4, 4);
+      var tmp_2 = new Matrix(4, 4);
+      var sub = new Matrix(4, 4);
+      var mult = new Matrix(4, 4);
+      var add = new Matrix(4, 4);
+      var R = this.R.data;
+      var M1 = this.mean1;
+      var M2 = this.mean2;
+      sub.data.set([1, 0, 0, -M1[0],
+          0, 1, 0, -M1[1],
+          0, 0, 1, -M1[2],
+          0, 0, 0, 1]);
+      mult.data.set([R[0], R[1], R[2], 0,
+          R[3], R[4], R[5], 0,
+          R[6], R[7], R[8], 0,
+          0, 0, 0, 1]);
+      add.data.set([1, 0, 0, M2[0],
+          0, 1, 0, M2[1],
+          0, 0, 1, M2[2],
+          0, 0, 0, 1]);
+      transpose(tmp_1, sub);
+      multiplyABt(transformMat_, mult, tmp_1);
+      transpose(tmp_2, transformMat_);
+      multiplyABt(tmp_1, add, tmp_2);
+      transpose(transformMat_, tmp_1);
+      this.transformationMatrix.elements = transformMat_.data;
   };
-  Superposition.prototype.prepCoords = function prepCoords (atoms, coords, n) {
+  Superposition.prototype.prepCoords = function prepCoords (atoms, coords, n, is4X4) {
       var i = 0;
-      var n3 = n * 3;
       var cd = coords.data;
+      var c = 3;
+      var d = n * 3;
+      if (is4X4) {
+          d = n * 4;
+          c = 4;
+      }
       if (atoms instanceof Structure) {
           atoms.eachAtom(function (a) {
-              if (i < n3) {
+              if (i < d) {
                   cd[i + 0] = a.x;
                   cd[i + 1] = a.y;
                   cd[i + 2] = a.z;
-                  i += 3;
+                  if (is4X4)
+                      { cd[i + 3] = 1; }
+                  i += c;
               }
           });
       }
       else if (atoms instanceof Float32Array) {
-          cd.set(atoms.subarray(0, n3));
+          for (; i < d; i += c) {
+              if (i < d) {
+                  cd[i] = atoms[i];
+                  cd[i + 1] = atoms[i + 1];
+                  cd[i + 2] = atoms[i + 2];
+                  if (is4X4)
+                      { cd[i + 3] = 1; }
+              }
+          }
       }
       else {
           Log.warn('prepCoords: input type unknown');
@@ -76895,31 +76965,57 @@
       else {
           return;
       }
-      var coords = new Matrix(3, n);
-      var tmp = new Matrix(n, 3);
+      var coords = new Matrix(4, n);
+      var tCoords = new Matrix(n, 4);
       // prep coords
-      this.prepCoords(atoms, coords, n);
+      this.prepCoords(atoms, coords, n, true);
+      // check for transformation matrix correctness
+      var transform = this.transformationMatrix;
+      var det = transform.determinant();
+      if (!det) {
+          return det;
+      }
       // do transform
-      subRows(coords, this.mean1);
-      multiplyABt(tmp, this.R, coords);
-      transpose(coords, tmp);
-      addRows(coords, this.mean2);
+      var mult = new Matrix(4, 4);
+      mult.data = transform.elements;
+      multiply(tCoords, coords, mult);
       var i = 0;
-      var cd = coords.data;
+      var cd = tCoords.data;
       if (atoms instanceof Structure) {
           atoms.eachAtom(function (a) {
-              a.x = cd[i + 0];
+              a.x = cd[i];
               a.y = cd[i + 1];
               a.z = cd[i + 2];
-              i += 3;
+              i += 4;
           });
+          //update transformation matrices for each assembly
+          var invertTrasform = new Matrix4();
+          invertTrasform.getInverse(transform);
+          var biomolDict = atoms.biomolDict;
+          for (var key in biomolDict) {
+              if (biomolDict.hasOwnProperty(key)) {
+                  var assembly = biomolDict[key];
+                  assembly.partList.forEach(function (part) {
+                      part.matrixList.forEach(function (mat) {
+                          mat.premultiply(transform);
+                          mat.multiply(invertTrasform);
+                      });
+                  });
+              }
+          }
       }
       else if (atoms instanceof Float32Array) {
-          atoms.set(cd.subarray(0, n * 3));
+          var n4 = n * 4;
+          for (; i < n4; i += 4) {
+              atoms[i] = cd[i];
+              atoms[i + 1] = cd[i + 1];
+              atoms[i + 2] = cd[i + 2];
+          }
       }
       else {
           Log.warn('transform: input type unknown');
       }
+      return this.transformationMatrix;
   };
 
   /**
@@ -78502,8 +78598,9 @@
           atoms2 = sviewCa2;
       }
       var superpose = new Superposition(atoms1, atoms2);
-      superpose.transform(s1);
+      var result = superpose.transform(s1);
       s1.refreshPosition();
+      return result;
   }
 
   /**
@@ -79704,6 +79801,69 @@
   };
 
   /**
+   * @file Shape Component
+   * @author Alexander Rose <alexander.rose@weirdbyte.de>
+   * @private
+   */
+  /**
+   * Component wrapping a {@link Shape} object
+   *
+   * @example
+   * // get a shape component by adding a shape object to the stage
+   * var shape = new NGL.Shape( "shape" );
+   * shape.addSphere( [ 0, 0, 0 ], [ 1, 0, 0 ], 1.5 );
+   * var shapeComponent = stage.addComponentFromObject( shape );
+   * shapeComponent.addRepresentation( "buffer" );
+   */
+  var ShapeComponent = (function (Component$$1) {
+      function ShapeComponent(stage, shape, params) {
+          if ( params === void 0 ) params = {};
+
+          Component$$1.call(this, stage, shape, Object.assign({ name: shape.name }, params));
+          this.shape = shape;
+      }
+
+      if ( Component$$1 ) ShapeComponent.__proto__ = Component$$1;
+      ShapeComponent.prototype = Object.create( Component$$1 && Component$$1.prototype );
+      ShapeComponent.prototype.constructor = ShapeComponent;
+
+      var prototypeAccessors = { type: { configurable: true } };
+      /**
+       * Component type
+       * @type {String}
+       */
+      prototypeAccessors.type.get = function () { return 'shape'; };
+      /**
+       * Add a new shape representation to the component
+       * @param {String} type - the name of the representation, one of:
+       *                        buffer.
+       * @param {BufferRepresentationParameters} params - representation parameters
+       * @return {RepresentationComponent} the created representation wrapped into
+       *                                   a representation component object
+       */
+      ShapeComponent.prototype.addRepresentation = function addRepresentation (type, params) {
+          if ( params === void 0 ) params = {};
+
+          return this._addRepresentation(type, this.shape, params);
+      };
+      ShapeComponent.prototype.getBoxUntransformed = function getBoxUntransformed () {
+          return this.shape.boundingBox;
+      };
+      ShapeComponent.prototype.getCenterUntransformed = function getCenterUntransformed () {
+          return this.shape.center;
+      };
+      ShapeComponent.prototype.dispose = function dispose () {
+          this.shape.dispose();
+          Component$$1.prototype.dispose.call(this);
+      };
+
+      Object.defineProperties( ShapeComponent.prototype, prototypeAccessors );
+
+      return ShapeComponent;
+  }(Component));
+  ComponentRegistry.add('shape', ShapeComponent);
+
+  /**
    * @file Atomindex Colormaker
    * @author Alexander Rose <alexander.rose@weirdbyte.de>
    * @private
@@ -80096,7 +80256,6 @@
       }
   };
   var maxRadius = 12.0;
-  var maxRadius2 = maxRadius * maxRadius;
   var nHBondDistance = 1.04;
   var nHCharge = 0.25;
   /**
@@ -80197,7 +80356,7 @@
               this.parameters.scale = 'rwb';
           }
           if (!params.domain) {
-              this.parameters.domain = [-0.5, 0, 0.5];
+              this.parameters.domain = [-50, 50];
           }
           this.scale = this.getScale();
           this.charges = new Float32Array(params.structure.atomCount);
@@ -80230,36 +80389,22 @@
       ElectrostaticColormaker.prototype = Object.create( Colormaker$$1 && Colormaker$$1.prototype );
       ElectrostaticColormaker.prototype.constructor = ElectrostaticColormaker;
       ElectrostaticColormaker.prototype.positionColor = function positionColor (v) {
-          var this$1 = this;
-
+          var charges = this.charges;
+          var hCharges = this.hCharges;
           var p = 0.0;
-          var neighbours = this.hash.within(v.x, v.y, v.z, maxRadius);
-          for (var i = 0; i < neighbours.length; i++) {
-              var neighbour = neighbours[i];
-              var charge = this$1.charges[neighbour];
-              if (charge != null && charge !== 0.0) {
-                  this$1.atomProxy.index = neighbour;
-                  this$1.delta.x = v.x - this$1.atomProxy.x;
-                  this$1.delta.y = v.y - this$1.atomProxy.y;
-                  this$1.delta.z = v.z - this$1.atomProxy.z;
-                  var r2 = this$1.delta.lengthSq();
-                  if (r2 < maxRadius2) {
-                      p += charge / r2;
-                  }
-              }
-          }
-          var hNeighbours = this.hHash.within(v.x, v.y, v.z, maxRadius);
-          for (var i$1 = 0; i$1 < hNeighbours.length; i$1++) {
-              var neighbour$1 = hNeighbours[i$1];
-              this$1.delta.x = v.x - this$1.hStore.x[neighbour$1];
-              this$1.delta.y = v.y - this$1.hStore.y[neighbour$1];
-              this$1.delta.z = v.z - this$1.hStore.z[neighbour$1];
-              var r2$1 = this$1.delta.lengthSq();
-              if (r2$1 < maxRadius2) {
-                  p += this$1.hCharges[neighbour$1] / r2$1;
-              }
-          }
-          return this.scale(p);
+          this.hash.eachWithin(v.x, v.y, v.z, maxRadius, function (atomIndex, dSq) {
+              var charge = charges[atomIndex];
+              if (charge === 0.0)
+                  { return; }
+              p += charge / dSq;
+          });
+          this.hHash.eachWithin(v.x, v.y, v.z, maxRadius, function (atomIndex, dSq) {
+              var charge = hCharges[atomIndex];
+              if (charge === 0.0)
+                  { return; }
+              p += charge / dSq;
+          });
+          return this.scale(p * 332); // 332 to convert to kcal/mol
       };
 
       return ElectrostaticColormaker;
@@ -81130,69 +81275,6 @@
       return VolumeColormaker;
   }(Colormaker));
   ColormakerRegistry$1.add('volume', VolumeColormaker);
-
-  /**
-   * @file Shape Component
-   * @author Alexander Rose <alexander.rose@weirdbyte.de>
-   * @private
-   */
-  /**
-   * Component wrapping a {@link Shape} object
-   *
-   * @example
-   * // get a shape component by adding a shape object to the stage
-   * var shape = new NGL.Shape( "shape" );
-   * shape.addSphere( [ 0, 0, 0 ], [ 1, 0, 0 ], 1.5 );
-   * var shapeComponent = stage.addComponentFromObject( shape );
-   * shapeComponent.addRepresentation( "buffer" );
-   */
-  var ShapeComponent = (function (Component$$1) {
-      function ShapeComponent(stage, shape, params) {
-          if ( params === void 0 ) params = {};
-
-          Component$$1.call(this, stage, shape, Object.assign({ name: shape.name }, params));
-          this.shape = shape;
-      }
-
-      if ( Component$$1 ) ShapeComponent.__proto__ = Component$$1;
-      ShapeComponent.prototype = Object.create( Component$$1 && Component$$1.prototype );
-      ShapeComponent.prototype.constructor = ShapeComponent;
-
-      var prototypeAccessors = { type: { configurable: true } };
-      /**
-       * Component type
-       * @type {String}
-       */
-      prototypeAccessors.type.get = function () { return 'shape'; };
-      /**
-       * Add a new shape representation to the component
-       * @param {String} type - the name of the representation, one of:
-       *                        buffer.
-       * @param {BufferRepresentationParameters} params - representation parameters
-       * @return {RepresentationComponent} the created representation wrapped into
-       *                                   a representation component object
-       */
-      ShapeComponent.prototype.addRepresentation = function addRepresentation (type, params) {
-          if ( params === void 0 ) params = {};
-
-          return this._addRepresentation(type, this.shape, params);
-      };
-      ShapeComponent.prototype.getBoxUntransformed = function getBoxUntransformed () {
-          return this.shape.boundingBox;
-      };
-      ShapeComponent.prototype.getCenterUntransformed = function getCenterUntransformed () {
-          return this.shape.center;
-      };
-      ShapeComponent.prototype.dispose = function dispose () {
-          this.shape.dispose();
-          Component$$1.prototype.dispose.call(this);
-      };
-
-      Object.defineProperties( ShapeComponent.prototype, prototypeAccessors );
-
-      return ShapeComponent;
-  }(Component));
-  ComponentRegistry.add('shape', ShapeComponent);
 
   /**
    * @file Structure Representation
@@ -87132,14 +87214,14 @@
           var loI = Math.max(0, nearI - 1);
           var loJ = Math.max(0, nearJ - 1);
           var loK = Math.max(0, nearK - 1);
-          var hiI = Math.min(iDim, nearI + 1);
-          var hiJ = Math.min(jDim, nearJ + 1);
-          var hiK = Math.min(kDim, nearK + 1);
-          for (var i = loI; i <= hiI; ++i) {
+          var hiI = Math.min(iDim, nearI + 2);
+          var hiJ = Math.min(jDim, nearJ + 2);
+          var hiK = Math.min(kDim, nearK + 2);
+          for (var i = loI; i < hiI; ++i) {
               var iOffset = i * jkDim;
-              for (var j = loJ; j <= hiJ; ++j) {
+              for (var j = loJ; j < hiJ; ++j) {
                   var jOffset = j * kDim;
-                  for (var k = loK; k <= hiK; ++k) {
+                  for (var k = loK; k < hiK; ++k) {
                       var cid = iOffset + jOffset + k;
                       var cellStart = cellOffsets[cid];
                       var cellEnd = cellStart + cellLengths[cid];
@@ -87205,6 +87287,7 @@
       // Neighbour array to be filled by hash
       var neighbours;
       // Vectors for Torus Projection
+      var atob = new Float32Array([0.0, 0.0, 0.0]);
       var mid = new Float32Array([0.0, 0.0, 0.0]);
       var n1 = new Float32Array([0.0, 0.0, 0.0]);
       var n2 = new Float32Array([0.0, 0.0, 0.0]);
@@ -87241,7 +87324,7 @@
           scaleFactor = surfGrid.scaleFactor;
           dim = surfGrid.dim;
           matrix = surfGrid.matrix;
-          ngTorus = Math.min(5, 2 + Math.floor(probeRadius * scaleFactor));
+          ngTorus = Math.max(5, 2 + Math.floor(probeRadius * scaleFactor));
           grid = uniformArray(dim[0] * dim[1] * dim[2], -1001.0);
           atomIndex = new Int32Array(grid.length);
           gridx = new Float32Array(dim[0]);
@@ -87394,9 +87477,9 @@
       function projectTorus(a, b) {
           var r1 = r[a];
           var r2 = r[b];
-          var dx = mid[0] = x[b] - x[a];
-          var dy = mid[1] = y[b] - y[a];
-          var dz = mid[2] = z[b] - z[a];
+          var dx = atob[0] = x[b] - x[a];
+          var dy = atob[1] = y[b] - y[a];
+          var dz = atob[2] = z[b] - z[a];
           var d2 = dx * dx + dy * dy + dz * dz;
           // This check now redundant as already done in AVHash.withinRadii
           // if( d2 > (( r1 + r2 ) * ( r1 + r2 )) ){ return; }
@@ -87406,21 +87489,21 @@
           var cosA = (r1 * r1 + d * d - r2 * r2) / (2.0 * r1 * d);
           // distance along a->b at intersection
           var dmp = r1 * cosA;
-          v3normalize(mid, mid);
+          v3normalize(atob, atob);
           // Create normal to line
-          normalToLine(n1, mid);
+          normalToLine(n1, atob);
           v3normalize(n1, n1);
           // Cross together for second normal vector
-          v3cross(n2, mid, n1);
+          v3cross(n2, atob, n1);
           v3normalize(n2, n2);
           // r is radius of circle of intersection
           var rInt = Math.sqrt(r1 * r1 - dmp * dmp);
           v3multiplyScalar(n1, n1, rInt);
           v3multiplyScalar(n2, n2, rInt);
-          v3multiplyScalar(mid, mid, dmp);
-          mid[0] += x[a];
-          mid[1] += y[a];
-          mid[2] += z[a];
+          v3multiplyScalar(atob, atob, dmp);
+          mid[0] = atob[0] + x[a];
+          mid[1] = atob[1] + y[a];
+          mid[2] = atob[2] + z[a];
           lastClip = -1;
           var ng = ngTorus;
           for (var i = 0; i < probePositions; i++) {
@@ -87455,8 +87538,12 @@
                               var current = grid[idx];
                               if (current > 0.0 && d2 < (current * current)) {
                                   grid[idx] = Math.sqrt(d2);
-                                  if (setAtomID)
-                                      { atomIndex[idx] = a; }
+                                  if (setAtomID) {
+                                      // Is this grid point closer to a or b?
+                                      // Take dot product of atob and gridpoint->p (dx, dy, dz)
+                                      var dp = dx * atob[0] + dy * atob[1] + dz * atob[2];
+                                      atomIndex[idx] = dp < 0.0 ? b : a;
+                                  }
                               }
                           }
                       }
@@ -100770,7 +100857,7 @@
       mousePreset: SelectParam.apply(void 0, Object.keys(MouseActionPresets))
   };
 
-  var version$1 = "2.0.0-dev.34";
+  var version$1 = "2.0.0-dev.36";
 
   /**
    * @file Version
@@ -100804,6 +100891,11 @@
   exports.Collection = Collection;
   exports.ComponentCollection = ComponentCollection;
   exports.RepresentationCollection = RepresentationCollection;
+  exports.Component = Component;
+  exports.ShapeComponent = ShapeComponent;
+  exports.StructureComponent = StructureComponent;
+  exports.SurfaceComponent = SurfaceComponent;
+  exports.VolumeComponent = VolumeComponent;
   exports.Assembly = Assembly;
   exports.TrajectoryPlayer = TrajectoryPlayer;
   exports.Superposition = Superposition;
