@@ -145,16 +145,11 @@
 	}
 
 
-    // Turn result set into array of objects
+    // Turn result set into array of objects and free result
     function resultsAsArray($result) {
-        $arr = array();
-        while ($line = pg_fetch_array($result, null, PGSQL_ASSOC)) {
-            $arr[] = $line;
-        }
-
+        $arr = pg_fetch_all ($result);
         // free resultset
         pg_free_result($result);
-
         return $arr;
     }
 
