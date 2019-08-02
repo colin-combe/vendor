@@ -77,9 +77,9 @@
 
         if (doesColumnExist ($dbconn, "user_groups", "max_aas")) {
             pg_prepare($dbconn, "", "SELECT max(user_groups.max_search_count) as max_search_count, max(user_groups.max_spectra) as max_spectra, max(user_groups.max_aas) as max_aas, max(user_groups.search_lifetime_days) as max_search_lifetime, max(user_groups.max_searches_per_day) as max_searches_per_day,
-            MAX(CAST(user_groups.see_all as INT)) AS see_all,
-            MAX(CAST(user_groups.super_user as INT)) AS super_user,
-            MAX(CAST(user_groups.can_add_search as INT)) AS can_add_search
+            BOOL_OR(user_groups.see_all)::int AS see_all,
+            BOOL_OR(user_groups.super_user)::int AS super_user,
+            BOOL_OR(user_groups.can_add_search)::int AS can_add_search
             FROM user_groups
             JOIN user_in_group ON user_in_group.group_id = user_groups.id
             JOIN users ON users.id = user_in_group.user_id
@@ -98,15 +98,12 @@
 
             if ($canAddNewSearch) {
                 $userSearches = countUserSearches ($dbconn, $userID);
-                if ($maxSearchCount !== null && $userSearches >= $maxSearchCount) {
+                if ($maxSearchCount !== null && (int)$userSearches["alltime"] >= $maxSearchCount) {
                     $canAddNewSearch = false;
                     $searchDenyReason = "You already have ".$maxSearchCount." or more active searches. Consider hiding some of them to allow new searches.";
                 }
-            }
 
-            if ($canAddNewSearch) {
-                $userSearchesToday = countUserSearchesToday ($dbconn, $userID);
-                if ($maxSearchesPerDay !== null && $userSearchesToday >= $maxSearchesPerDay) {
+                if ($maxSearchesPerDay !== null && (int)$userSearches["today"] >= $maxSearchesPerDay) {
                     $canAddNewSearch = false;
                     $searchDenyReason = "Limit met. Your user profile is restricted to ".$maxSearchesPerDay." new search(es) per day.";
                 }
@@ -130,20 +127,11 @@
 		return $userRights;
     }
 
-    // Number of searches by a particular user performed today
-    function countUserSearchesToday ($dbconn, $userID) {
-        pg_prepare ($dbconn, "", "SELECT COUNT(id) FROM search WHERE uploadedby = $1 AND (hidden ISNULL or hidden = 'f') AND submit_date::date = now()::date");
-        $result = pg_execute ($dbconn, "", [$userID]);
-        $row = pg_fetch_assoc ($result);
-        return (int)$row["count"];
-    }
-
-    // Number of searches by a particular user
+    // Number of searches by a particular user (in fields 'alltime' and 'today')
     function countUserSearches ($dbconn, $userID) {
-        pg_prepare ($dbconn, "", "SELECT COUNT(id) FROM search WHERE uploadedby = $1 AND (hidden ISNULL or hidden = 'f')");
+        pg_prepare ($dbconn, "", "SELECT COUNT(*) as alltime, coalesce(SUM(case when submit_date::date = now()::date then 1 end), 0) as today FROM search WHERE uploadedby = $1 AND (hidden ISNULL or hidden = 'f')");
         $result = pg_execute ($dbconn, "", [$userID]);
-        $row = pg_fetch_assoc ($result);
-        return (int)$row["count"];
+        return pg_fetch_assoc ($result);
     }
 
     function doesColumnExist ($dbconn, $tableName, $columnName) {
@@ -174,6 +162,7 @@
     // Turn result set into array of objects and free result
     function resultsAsArray($result) {
         $arr = pg_fetch_all ($result);
+        
         // free resultset
         pg_free_result($result);
         return $arr;
