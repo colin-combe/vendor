@@ -34,6 +34,20 @@
         return $rights["isSuperUser"];
     }
 
+    // ask if user has rights to see an individual search - used for searchsubmit 'base new' functionality
+    function canUserAccessSearch ($dbconn, $userID, $searchID) {
+        $userRights = getUserRights ($dbconn, $userID);
+        if ($userRights["isSuperUser"]) {
+            return true;
+        }
+        
+        pg_prepare($dbconn, "", "SELECT uploadedby, private, hidden FROM search WHERE id = $1");
+        $result = pg_execute ($dbconn, "", [$searchID]);
+        $row = pg_fetch_assoc ($result);
+        
+        return ($row["uploadedby"] === $userID) || ($userRights["canSeeAll"] && !isTrue($row["private"]) && !isTrue($row["hidden"]));
+    }
+
     function getUserRights ($dbconn, $userID) {
         pg_prepare($dbconn, "", "SELECT * FROM users WHERE id = $1");
         $result = pg_execute ($dbconn, "", [$userID]);
