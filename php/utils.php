@@ -139,7 +139,7 @@
 		$arrString = "{".join(",", $uploadIDArray)."}"; 
 		//error_log (print_r ("params ".$userID.", ".$isSuperUser.", ".$arrString, true));
 		
-		// table name can't be paramterised - https://stackoverflow.com/questions/11312737
+		// table name can't be parameterised - https://stackoverflow.com/questions/11312737
 		pg_prepare ($dbconn, "", "SELECT id,private,private and not($2 or uploadedby=$1) as refused from ".$table." where id = ANY($3)");
         $result = pg_execute ($dbconn, "", [$userID, $isSuperUser, $arrString]);
 		
