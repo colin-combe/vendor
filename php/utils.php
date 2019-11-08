@@ -305,12 +305,6 @@
             'User-Agent: '+$gitHubIssueUser
         ]);
         
-        curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Accept: application/json',
-            'Content-Type: application/json',
-            'Authorization: token f4a75419756a7644e7582f9a788d30d307ab0847',
-            'User-Agent: xiadmin-issues'
-        ]);
         curl_setopt ($ch,CURLOPT_POST, 1);
         $payload = array ("title" => normalizeString2($issueName), "body" => normalizeString2($issueText));
         curl_setopt ($ch,CURLOPT_POSTFIELDS, json_encode($payload));
