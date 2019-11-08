@@ -301,8 +301,8 @@
             //'Accept: application/vnd.github.v3+json',
             'Accept: application/json',
             'Content-Type: application/json',
-            'Authorization: token '+$gitHubIssueToken,
-            'User-Agent: '+$gitHubIssueUser
+            'Authorization: token '.$gitHubIssueToken,
+            'User-Agent: '.$gitHubIssueUser
         ]);
         
         curl_setopt ($ch,CURLOPT_POST, 1);
@@ -315,5 +315,7 @@
         $json = curl_exec($ch);
         
         curl_close($ch);
+        
+        return $json;
     }
 ?>
