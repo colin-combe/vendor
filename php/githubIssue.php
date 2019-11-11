@@ -7,9 +7,13 @@
     validateCaptcha ($captcha);
 
     if (isset($_POST["issueName"]) && isset($_POST["issueText"])) {
-        $json = sendGithubIssue ($_POST["issueName"], $_POST["issueText"]);
-        echo ($json);
+        $json = json_decode (sendGithubIssue ($_POST["issueName"], $_POST["issueText"]));
+        if (isset($json->url)) {
+            echo (json_encode (array ("success" => true, "msg" => "<A href='".$json->html_url."'>Issue Posted</a>")));
+        } else {
+            echo (json_encode (array ("fail" => true, "msg" => $json)));
+        }
     } else {
-        echo (json_encode(array ("error" => "issueName and issueText not populated")));
+        echo (json_encode(array ("fail" => true, "msg" => "issueName and issueText not populated")));
     }
 ?>
