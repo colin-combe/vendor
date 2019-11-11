@@ -293,9 +293,10 @@
     }
 
     function sendGithubIssue ($issueName, $issueText) {
-        include ('../../../xi_ini/emailInfo.php');
+        include ('../../../xi_ini/emailInfo.php');  // $private $gitHub values
         
-        $ch = curl_init('https://api.github.com/repos/Rappsilber-Laboratory/xiView_container/issues');
+        //$ch = curl_init('https://api.github.com/repos/Rappsilber-Laboratory/xiView_container/issues');
+        $ch = curl_init('https://api.github.com/repos/'.$gitHubRepo.'/issues');
 
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             //'Accept: application/vnd.github.v3+json',
