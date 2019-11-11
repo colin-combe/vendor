@@ -291,4 +291,31 @@
         //error_log (print_r ($str, true));
         return $str;
     }
+
+    function sendGithubIssue ($issueName, $issueText) {
+        include ('../../../xi_ini/emailInfo.php');
+        
+        $ch = curl_init('https://api.github.com/repos/Rappsilber-Laboratory/xiView_container/issues');
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            //'Accept: application/vnd.github.v3+json',
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'Authorization: token '.$gitHubIssueToken,
+            'User-Agent: '.$gitHubIssueUser
+        ]);
+        
+        curl_setopt ($ch,CURLOPT_POST, 1);
+        $payload = array ("title" => normalizeString2($issueName), "body" => normalizeString2($issueText));
+        curl_setopt ($ch,CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt ($ch, CURLOPT_USERNAME, $gitHubIssueUser);
+        curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+        $json = curl_exec($ch);
+        
+        curl_close($ch);
+        
+        return $json;
+    }
 ?>
