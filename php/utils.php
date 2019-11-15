@@ -60,6 +60,20 @@
         return $rights["isSuperUser"];
     }
 
+    // ask if user has rights to see an individual search - used for searchsubmit 'base new' functionality
+    function canUserAccessSearch ($dbconn, $userID, $searchID) {
+        $userRights = getUserRights ($dbconn, $userID);
+        if ($userRights["isSuperUser"]) {
+            return true;
+        }
+        
+        pg_prepare($dbconn, "", "SELECT uploadedby, private, hidden FROM search WHERE id = $1");
+        $result = pg_execute ($dbconn, "", [$searchID]);
+        $row = pg_fetch_assoc ($result);
+        
+        return ($row["uploadedby"] === $userID) || ($userRights["canSeeAll"] && !isTrue($row["private"]) && !isTrue($row["hidden"]));
+    }
+
     function getUserRights ($dbconn, $userID) {
         pg_prepare($dbconn, "", "SELECT * FROM users WHERE id = $1");
         $result = pg_execute ($dbconn, "", [$userID]);
@@ -151,7 +165,7 @@
 		$arrString = "{".join(",", $uploadIDArray)."}";
 		//error_log (print_r ("params ".$userID.", ".$isSuperUser.", ".$arrString, true));
 
-		// table name can't be paramterised - https://stackoverflow.com/questions/11312737
+		// table name can't be parameterised - https://stackoverflow.com/questions/11312737
 		pg_prepare ($dbconn, "", "SELECT id,private,private and not($2 or uploadedby=$1) as refused from ".$table." where id = ANY($3)");
         $result = pg_execute ($dbconn, "", [$userID, $isSuperUser, $arrString]);
 
@@ -302,5 +316,33 @@
         }
         //error_log (print_r ($str, true));
         return $str;
+    }
+
+    function sendGithubIssue ($issueName, $issueText) {
+        include ('../../../xi_ini/emailInfo.php');  // $private $gitHub values
+        
+        //$ch = curl_init('https://api.github.com/repos/Rappsilber-Laboratory/xiView_container/issues');
+        $ch = curl_init('https://api.github.com/repos/'.$gitHubRepo.'/issues');
+
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            //'Accept: application/vnd.github.v3+json',
+            'Accept: application/json',
+            'Content-Type: application/json',
+            'Authorization: token '.$gitHubIssueToken,
+            'User-Agent: '.$gitHubIssueUser
+        ]);
+        
+        curl_setopt ($ch,CURLOPT_POST, 1);
+        $payload = array ("title" => normalizeString2($issueName), "body" => normalizeString2($issueText));
+        curl_setopt ($ch,CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt ($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt ($ch, CURLOPT_USERNAME, $gitHubIssueUser);
+        curl_setopt ($ch, CURLOPT_SSL_VERIFYPEER, false);
+
+        $json = curl_exec($ch);
+        
+        curl_close($ch);
+        
+        return $json;
     }
 ?>
