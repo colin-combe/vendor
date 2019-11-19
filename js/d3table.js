@@ -25,12 +25,19 @@ if (has_require) {
 		function filterHasContent (filter) {
 			return filter || (filter === 0);
 		}
+        
+        var escapeRegex = /[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g;    // https://stackoverflow.com/a/3561711
 
 		var preprocessFilterInputFuncs = {
 			alpha: function (filterVal) {
 				// Strings split by spaces and entries must later match all substrings: As asked for by lutz and worked in the old table - issue 139
-				var parts = filterVal ? filterVal.split(" ").map (function (part) { return "(?=.*"+part+")"; }) : [];
-				return new RegExp (parts.length > 1 ? parts.join("") : filterVal, "i");
+                var parts = filterVal ? filterVal.split(" ").map (function (part) {
+                    return part.replace (escapeRegex, '\\$&'); 
+                }) : [];
+                if (parts.length > 1) {
+                    parts = parts.map (function (part) { return "(?=.*"+part+")"; });
+                }
+				return new RegExp (parts.join(""), "i");
 			},
 			numeric: function (filterVal) { return filterHasContent(filterVal) ? filterVal.toString().split(" ").map (function (part) { return Number(part); }) : filterVal; },
 			boolean: function (filterVal) { return toBoolean (filterVal); },
@@ -73,6 +80,7 @@ if (has_require) {
 					pageInfo.append("span")
 						.attr("class", "d3table-pageInput")
 						.append ("input")
+                            .attr ("class", "d3table-pageWidget")
 							.attr ("type", "number")
 							.attr ("length", 3)
 							.attr ("min", 1)
@@ -93,7 +101,7 @@ if (has_require) {
 				var table = wrapperTable.append("table").attr("class", "d3table");
 				table.append("thead").selectAll("tr").data(["","d3table-filterRow"]).enter().append("tr").attr("class", function(d) { return d; });
 				table.append("tbody");
-				table.append("tfoot").append("tr").call(addPageWidget, "td");	// add bottom page control
+				table.append("caption").call(addPageWidget, "span");	// add bottom page control
 			}
 
 			buildHeaders ();
@@ -103,7 +111,7 @@ if (has_require) {
 			doPageCount();
 
 			function setPageWidget (page) {
-				selection.selectAll(".d3table-pageInput input[type='number']").property ("value", page);
+				selection.selectAll(".d3table-pageInput input.d3table-pageWidget").property ("value", page);
 			};
 
 			function setOrderButton (key) {
