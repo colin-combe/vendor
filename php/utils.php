@@ -232,7 +232,7 @@
         include ('../../../xi_ini/emailInfo.php');
 
         $ip = $_SERVER['REMOTE_ADDR'];
-        $response=file_get_contents("https://www.google.com/recaptcha/api/siteverify?secret=".$secretRecaptchaKey."&response=".$captcha."&remoteip=".$ip);
+        $response=file_get_contents("https://www.recaptcha.net/recaptcha/api/siteverify?secret=".$secretRecaptchaKey."&response=".$captcha."&remoteip=".$ip);
         $responseKeys = json_decode($response,true);
         //error_log (print_r ($responseKeys, true));
         if (intval($responseKeys["success"]) !== 1) {
